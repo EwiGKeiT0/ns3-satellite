@@ -7,7 +7,6 @@
 #include "ns3/node-container.h"
 #include "ns3/output-stream-wrapper.h"
 #include "ns3/timer.h"
-#include "ns3/random-variable-stream.h"
 #include <map>
 #include <vector>
 
@@ -60,7 +59,6 @@ private:
     Time m_updateInterval;
     uint32_t m_maxNeighbors;
     std::vector<NeighborInfo> m_activeNeighbors;
-    Ptr<RandomVariableStream> m_rng;
 
     // Static data, shared across all instances
     static std::map<Ipv4Address, Ptr<Node>> m_ipToNodeMap;
