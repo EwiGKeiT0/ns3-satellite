@@ -17,7 +17,7 @@ SatelliteRoutingHelper::~SatelliteRoutingHelper()
 }
 
 SatelliteRoutingHelper*
-SatelliteRoutingHelper::Copy(void) const
+SatelliteRoutingHelper::Copy() const
 {
     SatelliteRoutingHelper* copy = new SatelliteRoutingHelper();
     copy->m_orbitalPlanes = this->m_orbitalPlanes;

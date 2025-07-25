@@ -36,6 +36,7 @@ public:
     void NotifyRemoveAddress(uint32_t interface, Ipv4InterfaceAddress address) override;
     // Public helpers
     static void AddIpToNodeMapping(Ipv4Address ip, Ptr<Node> node);
+    static void AddIpToNodeMapping(const NodeContainer& allSatellites);
     static void ClearIpToNodeMapping();
     static const std::map<Ipv4Address, Ptr<Node>>& GetIpToNodeMap();
 

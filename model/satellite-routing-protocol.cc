@@ -56,6 +56,18 @@ void SatelliteRoutingProtocol::AddIpToNodeMapping(Ipv4Address ip, Ptr<Node> node
     m_ipToNodeMap[ip] = node;
 }
 
+void SatelliteRoutingProtocol::AddIpToNodeMapping(const NodeContainer& allSatellites)
+{
+    for(uint32_t i = 0; i < allSatellites.GetN(); ++i)
+    {
+        Ptr<Node> node = allSatellites.Get(i);
+        Ptr<Ipv4> ipv4Node = node->GetObject<Ipv4>();
+        for (uint32_t j = 1; j < ipv4Node->GetNInterfaces(); ++j) {
+            SatelliteRoutingProtocol::AddIpToNodeMapping(ipv4Node->GetAddress(j, 0).GetLocal(), node);
+        }
+    }
+}
+
 void SatelliteRoutingProtocol::ClearIpToNodeMapping()
 {
     m_ipToNodeMap.clear();

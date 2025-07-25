@@ -20,7 +20,7 @@ public:
      * @brief Create a new SatelliteRoutingHelper.
      * @return a newly-created SatelliteRoutingHelper
      */
-    SatelliteRoutingHelper* Copy(void) const override;
+    SatelliteRoutingHelper* Copy() const override;
 
     /**
      * @brief Installs the satellite routing protocol on a node.
