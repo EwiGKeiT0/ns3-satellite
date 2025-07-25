@@ -28,12 +28,12 @@ public:
     virtual ~SatelliteRoutingProtocol();
 
     // From Ipv4RoutingProtocol
-    virtual Ptr<Ipv4Route> RouteOutput(Ptr<Packet> p, const Ipv4Header &header, Ptr<NetDevice> oif, Socket::SocketErrno &sockerr) override;
-    virtual bool RouteInput(Ptr<const Packet> p, const Ipv4Header &header, Ptr<const NetDevice> idev, const UnicastForwardCallback& ucb, const MulticastForwardCallback& mcb, const LocalDeliverCallback& lcb, const ErrorCallback& ecb) override;
-    virtual void NotifyInterfaceUp(uint32_t interface) override;
-    virtual void NotifyInterfaceDown(uint32_t interface) override;
-    virtual void NotifyAddAddress(uint32_t interface, Ipv4InterfaceAddress address) override;
-    virtual void NotifyRemoveAddress(uint32_t interface, Ipv4InterfaceAddress address) override;
+    Ptr<Ipv4Route> RouteOutput(Ptr<Packet> p, const Ipv4Header &header, Ptr<NetDevice> oif, Socket::SocketErrno &sockerr) override;
+    bool RouteInput(Ptr<const Packet> p, const Ipv4Header &header, Ptr<const NetDevice> idev, const UnicastForwardCallback& ucb, const MulticastForwardCallback& mcb, const LocalDeliverCallback& lcb, const ErrorCallback& ecb) override;
+    void NotifyInterfaceUp(uint32_t interface) override;
+    void NotifyInterfaceDown(uint32_t interface) override;
+    void NotifyAddAddress(uint32_t interface, Ipv4InterfaceAddress address) override;
+    void NotifyRemoveAddress(uint32_t interface, Ipv4InterfaceAddress address) override;
     // Public helpers
     static void AddIpToNodeMapping(Ipv4Address ip, Ptr<Node> node);
     static void ClearIpToNodeMapping();
@@ -41,8 +41,8 @@ public:
 
     void SetIpv4(Ptr<Ipv4> ipv4) override;
     void SetOrbitalPlanes(const std::vector<NodeContainer>& orbitalPlanes);
-    virtual void PrintRoutingTable(Ptr<OutputStreamWrapper> stream, Time::Unit unit = Time::S) const override;
-    virtual void DoInitialize() override;
+    void PrintRoutingTable(Ptr<OutputStreamWrapper> stream, Time::Unit unit = Time::S) const override;
+    void DoInitialize() override;
 
 private:
     struct NeighborInfo {
