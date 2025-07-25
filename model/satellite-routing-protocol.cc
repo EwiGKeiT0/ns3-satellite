@@ -93,7 +93,6 @@ void SatelliteRoutingProtocol::NotifyInterfaceDown(uint32_t i) { }
 void SatelliteRoutingProtocol::NotifyAddAddress(uint32_t i, Ipv4InterfaceAddress a) { }
 void SatelliteRoutingProtocol::NotifyRemoveAddress(uint32_t i, Ipv4InterfaceAddress a) { }
 
-
 void SatelliteRoutingProtocol::UpdateActiveNeighbors()
 {
     NS_LOG_DEBUG("Updating active neighbors for node " << m_ipv4->GetObject<Node>()->GetId());
@@ -178,7 +177,6 @@ void SatelliteRoutingProtocol::UpdateActiveNeighbors()
     // Reschedule the timer for the next update.
     m_updateTimer.Schedule(m_updateInterval);
 }
-
 
 bool
 SatelliteRoutingProtocol::RouteInput(Ptr<const Packet> p, const Ipv4Header &header, Ptr<const NetDevice> idev,
