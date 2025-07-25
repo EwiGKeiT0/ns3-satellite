@@ -6,6 +6,7 @@
 #include "ns3/point-to-point-net-device.h"
 #include "ns3/simulator.h"
 #include "ns3/channel.h"
+#include "ns3/core-module.h"
 
 namespace ns3 {
 
@@ -27,7 +28,7 @@ SatelliteRoutingProtocol::GetTypeId(void)
 }
 
 SatelliteRoutingProtocol::SatelliteRoutingProtocol() 
-    : m_updateInterval(Seconds(1.0)), m_maxNeighbors(4)
+    : m_updateInterval(Seconds(1.0)), m_maxNeighbors(6)
 {
     // Set the callback function for our timer. This is done only once.
     m_updateTimer.SetFunction(&SatelliteRoutingProtocol::UpdateActiveNeighbors, this);
@@ -100,7 +101,8 @@ void SatelliteRoutingProtocol::UpdateActiveNeighbors()
     m_activeNeighbors.clear();
     
     Ptr<Node> thisNode = m_ipv4->GetObject<Node>();
-    int currentPlaneIdx = -1, currentNodeIdx = -1;
+    int currentPlaneIdx = -1;
+    int currentNodeIdx = -1;
 
     // Find our own position in the topology definition
     for (size_t i = 0; i < m_orbitalPlanes.size(); ++i) {
@@ -138,11 +140,11 @@ void SatelliteRoutingProtocol::UpdateActiveNeighbors()
     // 2a. Force add intra-plane neighbors
     const auto& myPlane = m_orbitalPlanes[currentPlaneIdx];
     if (myPlane.GetN() > 1) {
-        Ptr<Node> prevInTopology = myPlane.Get((currentNodeIdx + myPlane.GetN() - 1) % myPlane.GetN());
-        Ptr<Node> nextInTopology = myPlane.Get((currentNodeIdx + 1) % myPlane.GetN());
+        Ptr<Node> pre = myPlane.Get((currentNodeIdx + myPlane.GetN() - 1) % myPlane.GetN());
+        Ptr<Node> nxt = myPlane.Get((currentNodeIdx + 1) % myPlane.GetN());
         
         for (const auto& neighbor : allPhysicalNeighbors) {
-            if (neighbor.neighborNode == prevInTopology || neighbor.neighborNode == nextInTopology) {
+            if (neighbor.neighborNode == pre || neighbor.neighborNode == nxt) {
                 m_activeNeighbors.push_back(neighbor);
             }
         }
@@ -251,16 +253,16 @@ SatelliteRoutingProtocol::RouteOutput(Ptr<Packet> p, const Ipv4Header &header, P
        return nullptr;
     }
 
-    double minDistanceToDest = -1.0;
-    NeighborInfo bestNextHop;
-    bool bestHopFound = false;
-
     Ptr<MobilityModel> destMobility = destNode->GetObject<MobilityModel>();
     if (!destMobility) { 
         NS_LOG_ERROR("  -> Destination node " << destNode->GetId() << " has no mobility model.");
         sockerr = Socket::ERROR_NOROUTETOHOST; 
         return nullptr; 
     }
+
+    double minDistanceToDest = thisNode->GetObject<MobilityModel>()->GetDistanceFrom(destMobility);
+    NeighborInfo bestNextHop;
+    bool bestHopFound = false;
 
     NS_LOG_DEBUG("  -> Finding best next hop among " << m_activeNeighbors.size() << " active neighbors:");
     for (const auto& neighborInfo : m_activeNeighbors) {
@@ -269,7 +271,7 @@ SatelliteRoutingProtocol::RouteOutput(Ptr<Packet> p, const Ipv4Header &header, P
         NS_LOG_DEBUG("    - Considering neighbor Node " << neighborInfo.neighborNode->GetId() 
                      << " (dist to dest: " << dist << ")");
 
-        if (!bestHopFound || dist < minDistanceToDest) {
+        if (dist < minDistanceToDest) {
             minDistanceToDest = dist;
             bestNextHop = neighborInfo;
             bestHopFound = true;
@@ -277,9 +279,16 @@ SatelliteRoutingProtocol::RouteOutput(Ptr<Packet> p, const Ipv4Header &header, P
     }
 
     if (!bestHopFound) {
-        NS_LOG_WARN("  -> No active neighbors found to forward the packet.");
-        sockerr = Socket::ERROR_NOROUTETOHOST;
-        return nullptr;
+        if (m_activeNeighbors.size() == 0) {
+            NS_LOG_WARN("  -> No active neighbors found to forward the packet.");
+            sockerr = Socket::ERROR_NOROUTETOHOST;
+            return nullptr;
+        } else {
+            Ptr<UniformRandomVariable> uniformRv = CreateObject<UniformRandomVariable>();
+            uniformRv->SetAttribute("Min", DoubleValue(0.0));
+            uniformRv->SetAttribute("Max", DoubleValue((int)m_activeNeighbors.size() - 1));
+            bestNextHop = m_activeNeighbors[uniformRv->GetInteger()];
+        }
     }
     
     NS_LOG_INFO("  -> Best next hop: Node " << bestNextHop.neighborNode->GetId() 
@@ -307,18 +316,11 @@ SatelliteRoutingProtocol::RouteOutput(Ptr<Packet> p, const Ipv4Header &header, P
     // The gateway is the IP address of the interface on the neighboring node.
     // We need to find this address by traversing the channel from our local device.
     Ptr<Channel> channel = bestNextHop.localDevice->GetChannel();
-    NS_ASSERT_MSG(channel->GetNDevices() == 2, "Routing decision made for a non-p2p link");
-    
     Ptr<NetDevice> peerDevice = (channel->GetDevice(0) == bestNextHop.localDevice) 
                               ? channel->GetDevice(1) 
                               : channel->GetDevice(0);
-    NS_ASSERT_MSG(peerDevice, "Could not find peer device on channel");
-
     Ptr<Ipv4> peerIpv4 = peerDevice->GetNode()->GetObject<Ipv4>();
-    NS_ASSERT_MSG(peerIpv4, "Peer node has no IPv4 stack");
-
     int32_t peerInterfaceIndex = peerIpv4->GetInterfaceForDevice(peerDevice);
-    NS_ASSERT_MSG(peerInterfaceIndex >= 0, "Could not find interface index for peer device");
 
     Ipv4Address gatewayAddress = peerIpv4->GetAddress(peerInterfaceIndex, 0).GetLocal();
     route->SetGateway(gatewayAddress);
