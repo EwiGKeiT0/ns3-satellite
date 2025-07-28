@@ -10,45 +10,43 @@ namespace ns3 {
 class PointToPointEnergyModel : public energy::DeviceEnergyModel
 {
 public:
-    static TypeId GetTypeId(void);
-
+    static TypeId GetTypeId();
     PointToPointEnergyModel();
-    virtual ~PointToPointEnergyModel();
-
-    // Overridden from DeviceEnergyModel
-    void SetEnergySource(Ptr<energy::EnergySource> source) override;
-    double GetTotalEnergyConsumption(void) const override;
-    void HandleEnergyDepletion(void) override;
-    void HandleEnergyRecharged(void) override;
-    void HandleEnergyChanged(void) override;
+    ~PointToPointEnergyModel() override;
 
 private:
     void DoDispose() override;
     void DoInitialize() override;
-
     double DoGetCurrentA() const override;
+
+public:
+    void SetEnergySource(Ptr<energy::EnergySource> source) override;
+    double GetTotalEnergyConsumption() const override;
+    void HandleEnergyDepletion() override;
+    void HandleEnergyRecharged() override;
+    void HandleEnergyChanged() override;
     void ChangeState(int newState) override;
-    
-    // State transition callbacks
+
+private:
+    void UpdateEnergyState();
+    void TransmissionFinished();
+    void ReceptionFinished();
+
     void TxPacketTrace(Ptr<const Packet> packet);
     void RxPacketTrace(Ptr<const Packet> packet);
 
-    // Member variables
-    Ptr<PointToPointNetDevice> m_device; //!< The associated device
-    Ptr<energy::EnergySource> m_source; //!< The energy source
+    Ptr<PointToPointNetDevice> m_device;
+    Ptr<energy::EnergySource> m_source;
 
-    // Energy consumption parameters
-    double m_txCurrentA; //!< Transmit current in Amperes
-    double m_rxCurrentA; //!< Receive current in Amperes
-    double m_idleCurrentA; //!< Idle current in Amperes
+    double m_txCurrentA;
+    double m_rxCurrentA;
+    double m_idleCurrentA;
 
-    enum State {
-        IDLE,
-        TX,
-        RX
-    };
+    Time m_lastUpdateTime;
+    double m_totalEnergyConsumption;
 
-    State m_state; //!< Current state of the energy model
+    bool m_isTransmitting;
+    bool m_isReceiving;
 };
 
 } // namespace ns3

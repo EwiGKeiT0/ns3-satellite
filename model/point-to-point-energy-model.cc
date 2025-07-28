@@ -11,7 +11,7 @@ namespace ns3 {
 NS_LOG_COMPONENT_DEFINE("PointToPointEnergyModel");
 NS_OBJECT_ENSURE_REGISTERED(PointToPointEnergyModel);
 
-TypeId PointToPointEnergyModel::GetTypeId(void)
+TypeId PointToPointEnergyModel::GetTypeId()
 {
     static TypeId tid = TypeId("ns3::PointToPointEnergyModel")
         .SetParent<energy::DeviceEnergyModel>()
@@ -38,7 +38,10 @@ PointToPointEnergyModel::PointToPointEnergyModel()
       m_txCurrentA(0),
       m_rxCurrentA(0),
       m_idleCurrentA(0),
-      m_state(IDLE)
+      m_lastUpdateTime(Seconds(0)),
+      m_totalEnergyConsumption(0),
+      m_isTransmitting(false),
+      m_isReceiving(false)
 {
 }
 
@@ -46,14 +49,14 @@ PointToPointEnergyModel::~PointToPointEnergyModel()
 {
 }
 
-void PointToPointEnergyModel::DoDispose(void)
+void PointToPointEnergyModel::DoDispose()
 {
     m_device = nullptr;
     m_source = nullptr;
     energy::DeviceEnergyModel::DoDispose();
 }
 
-void PointToPointEnergyModel::DoInitialize(void)
+void PointToPointEnergyModel::DoInitialize()
 {
     energy::DeviceEnergyModel::DoInitialize();
     m_device = DynamicCast<PointToPointNetDevice>(GetObject<NetDevice>());
@@ -61,67 +64,105 @@ void PointToPointEnergyModel::DoInitialize(void)
 
     m_device->TraceConnectWithoutContext("MacTx", MakeCallback(&PointToPointEnergyModel::TxPacketTrace, this));
     m_device->TraceConnectWithoutContext("MacRx", MakeCallback(&PointToPointEnergyModel::RxPacketTrace, this));
+
+    if (m_source)
+    {
+        m_lastUpdateTime = Simulator::Now();
+    }
 }
 
 void PointToPointEnergyModel::SetEnergySource(Ptr<energy::EnergySource> source)
 {
     m_source = source;
+    m_lastUpdateTime = Simulator::Now();
 }
 
-double PointToPointEnergyModel::GetTotalEnergyConsumption(void) const
+double PointToPointEnergyModel::GetTotalEnergyConsumption() const
 {
+    Time duration = Simulator::Now() - m_lastUpdateTime;
+    double energy = m_totalEnergyConsumption;
+
     if (m_source)
     {
-        return m_source->GetInitialEnergy() - m_source->GetRemainingEnergy();
+        energy += duration.GetSeconds() * DoGetCurrentA() * m_source->GetSupplyVoltage();
     }
-    return 0;
+
+    return energy;
 }
 
-void PointToPointEnergyModel::HandleEnergyDepletion(void) {}
-void PointToPointEnergyModel::HandleEnergyRecharged(void) {}
-void PointToPointEnergyModel::HandleEnergyChanged(void) {}
+void PointToPointEnergyModel::HandleEnergyDepletion() {}
+void PointToPointEnergyModel::HandleEnergyRecharged() {}
+void PointToPointEnergyModel::HandleEnergyChanged() {}
 
 double PointToPointEnergyModel::DoGetCurrentA() const
 {
-    switch (m_state) {
-        case TX:
-            return m_txCurrentA;
-        case RX:
-            return m_rxCurrentA;
-        case IDLE:
-            return m_idleCurrentA;
-        default:
-            return 0;
+    double current = m_idleCurrentA;
+    if (m_isTransmitting)
+    {
+        current += m_txCurrentA - m_idleCurrentA;
     }
+    if (m_isReceiving)
+    {
+        current += m_rxCurrentA - m_idleCurrentA;
+    }
+    return current;
 }
 
 void PointToPointEnergyModel::ChangeState(int newState)
 {
+    // This function is required to be implemented because it is a pure virtual
+    // function in the base class (DeviceEnergyModel). However, our new model
+    // manages state internally with boolean flags (m_isTransmitting, m_isReceiving)
+    // and the UpdateEnergyState function, so this function is intentionally left empty.
+}
+
+void PointToPointEnergyModel::UpdateEnergyState(void)
+{
     if (m_source)
     {
+        Time now = Simulator::Now();
+        Time duration = now - m_lastUpdateTime;
+        double energyConsumed = duration.GetSeconds() * DoGetCurrentA() * m_source->GetSupplyVoltage();
+        m_totalEnergyConsumption += energyConsumed;
         m_source->UpdateEnergySource();
+        m_lastUpdateTime = now;
     }
-    m_state = (State)newState;
+}
+
+void PointToPointEnergyModel::TransmissionFinished(void)
+{
+    UpdateEnergyState();
+    m_isTransmitting = false;
+}
+
+void PointToPointEnergyModel::ReceptionFinished(void)
+{
+    UpdateEnergyState();
+    m_isReceiving = false;
 }
 
 void PointToPointEnergyModel::TxPacketTrace(Ptr<const Packet> packet)
 {
-    ChangeState(TX);
+    UpdateEnergyState();
+    m_isTransmitting = true;
+
     DataRateValue dataRateValue;
     m_device->GetAttribute("DataRate", dataRateValue);
     DataRate dataRate = dataRateValue.Get();
     Time txTime = dataRate.CalculateBytesTxTime(packet->GetSize());
-    Simulator::Schedule(txTime, &PointToPointEnergyModel::ChangeState, this, IDLE);
+    Simulator::Schedule(txTime, &PointToPointEnergyModel::TransmissionFinished, this);
 }
 
 void PointToPointEnergyModel::RxPacketTrace(Ptr<const Packet> packet)
 {
-    ChangeState(RX);
+    UpdateEnergyState();
+    m_isReceiving = true;
+
     DataRateValue dataRateValue;
     m_device->GetAttribute("DataRate", dataRateValue);
     DataRate dataRate = dataRateValue.Get();
     Time rxTime = dataRate.CalculateBytesTxTime(packet->GetSize());
-    Simulator::Schedule(rxTime, &PointToPointEnergyModel::ChangeState, this, IDLE);
+    Simulator::Schedule(rxTime, &PointToPointEnergyModel::ReceptionFinished, this);
 }
 
 } // namespace ns3
