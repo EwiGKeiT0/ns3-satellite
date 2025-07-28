@@ -14,6 +14,13 @@ NS_LOG_COMPONENT_DEFINE("SatelliteRoutingProtocol");
 
 NS_OBJECT_ENSURE_REGISTERED(SatelliteRoutingProtocol);
 
+Vector
+CrossProduct(const Vector& a, const Vector& b) {
+    return Vector(a.y * b.z - a.z * b.y,
+                  a.z * b.x - a.x * b.z,
+                  a.x * b.y - a.y * b.x);
+}
+
 // Initialize the static map
 std::map<Ipv4Address, Ptr<Node>> SatelliteRoutingProtocol::m_ipToNodeMap;
 
@@ -45,18 +52,21 @@ SatelliteRoutingProtocol::DoInitialize()
     Start();
 }
 
-void SatelliteRoutingProtocol::Start()
+void
+SatelliteRoutingProtocol::Start()
 {
     m_updateTimer.Schedule(Seconds(0.1));
 }
 
 
-void SatelliteRoutingProtocol::AddIpToNodeMapping(Ipv4Address ip, Ptr<Node> node)
+void
+SatelliteRoutingProtocol::AddIpToNodeMapping(Ipv4Address ip, Ptr<Node> node)
 {
     m_ipToNodeMap[ip] = node;
 }
 
-void SatelliteRoutingProtocol::AddIpToNodeMapping(const NodeContainer& allSatellites)
+void
+SatelliteRoutingProtocol::AddIpToNodeMapping(const NodeContainer& allSatellites)
 {
     for(uint32_t i = 0; i < allSatellites.GetN(); ++i)
     {
@@ -68,27 +78,32 @@ void SatelliteRoutingProtocol::AddIpToNodeMapping(const NodeContainer& allSatell
     }
 }
 
-void SatelliteRoutingProtocol::ClearIpToNodeMapping()
+void
+SatelliteRoutingProtocol::ClearIpToNodeMapping()
 {
     m_ipToNodeMap.clear();
 }
 
-const std::map<Ipv4Address, Ptr<Node>>& SatelliteRoutingProtocol::GetIpToNodeMap()
+const std::map<Ipv4Address, Ptr<Node>>&
+SatelliteRoutingProtocol::GetIpToNodeMap()
 {
     return m_ipToNodeMap;
 }
 
-void SatelliteRoutingProtocol::SetIpv4(Ptr<Ipv4> ipv4)
+void
+SatelliteRoutingProtocol::SetIpv4(Ptr<Ipv4> ipv4)
 {
     m_ipv4 = ipv4;
 }
 
-void SatelliteRoutingProtocol::SetOrbitalPlanes(const std::vector<NodeContainer>& orbitalPlanes)
+void
+SatelliteRoutingProtocol::SetOrbitalPlanes(const std::vector<NodeContainer>& orbitalPlanes)
 {
     m_orbitalPlanes = orbitalPlanes;
 }
 
-void SatelliteRoutingProtocol::PrintRoutingTable(Ptr<OutputStreamWrapper> stream, Time::Unit unit) const
+void
+SatelliteRoutingProtocol::PrintRoutingTable(Ptr<OutputStreamWrapper> stream, Time::Unit unit) const
 {
     *stream->GetStream() << "SatelliteRoutingProtocol: Routing table for Node " << m_ipv4->GetObject<Node>()->GetId() 
                        << " at time " << Simulator::Now().As(unit) << std::endl;
@@ -100,12 +115,17 @@ void SatelliteRoutingProtocol::PrintRoutingTable(Ptr<OutputStreamWrapper> stream
     }
 }
 
-void SatelliteRoutingProtocol::NotifyInterfaceUp(uint32_t i) { }
-void SatelliteRoutingProtocol::NotifyInterfaceDown(uint32_t i) { }
-void SatelliteRoutingProtocol::NotifyAddAddress(uint32_t i, Ipv4InterfaceAddress a) { }
-void SatelliteRoutingProtocol::NotifyRemoveAddress(uint32_t i, Ipv4InterfaceAddress a) { }
+void
+SatelliteRoutingProtocol::NotifyInterfaceUp(uint32_t i) { }
+void
+SatelliteRoutingProtocol::NotifyInterfaceDown(uint32_t i) { }
+void
+SatelliteRoutingProtocol::NotifyAddAddress(uint32_t i, Ipv4InterfaceAddress a) { }
+void
+SatelliteRoutingProtocol::NotifyRemoveAddress(uint32_t i, Ipv4InterfaceAddress a) { }
 
-void SatelliteRoutingProtocol::UpdateActiveNeighbors()
+void
+SatelliteRoutingProtocol::UpdateActiveNeighbors()
 {
     NS_LOG_DEBUG("Updating active neighbors for node " << m_ipv4->GetObject<Node>()->GetId());
     
@@ -138,7 +158,8 @@ void SatelliteRoutingProtocol::UpdateActiveNeighbors()
         Ptr<NetDevice> localDevice = m_ipv4->GetNetDevice(i);
         Ptr<Channel> channel = localDevice->GetChannel();
         if (channel && channel->GetNDevices() == 2) {
-            Ptr<NetDevice> peerDevice = (channel->GetDevice(0) == localDevice) ? channel->GetDevice(1) : channel->GetDevice(0);
+            Ptr<NetDevice> peerDevice = (channel->GetDevice(0) == localDevice) ? 
+                channel->GetDevice(1) : channel->GetDevice(0);
             if (peerDevice) {
                 Ptr<Node> peerNode = peerDevice->GetNode();
                 allPhysicalNeighbors.push_back({peerNode, localDevice});
@@ -148,42 +169,57 @@ void SatelliteRoutingProtocol::UpdateActiveNeighbors()
 
     // --- Step 2: Apply routing logic based on the discovered neighbors ---
 
-    // 2a. Force add intra-plane neighbors
+    // 2. Find best inter-plane neighbors using geometry
     const auto& myPlane = m_orbitalPlanes[currentPlaneIdx];
-    if (myPlane.GetN() > 1) {
-        Ptr<Node> pre = myPlane.Get((currentNodeIdx + myPlane.GetN() - 1) % myPlane.GetN());
-        Ptr<Node> nxt = myPlane.Get((currentNodeIdx + 1) % myPlane.GetN());
-        
-        for (const auto& neighbor : allPhysicalNeighbors) {
-            if (neighbor.neighborNode == pre || neighbor.neighborNode == nxt) {
-                m_activeNeighbors.push_back(neighbor);
-            }
-        }
-    }
-    
-    // 2b. Find best inter-plane neighbors from the remaining physical links
-    struct Edge { double dist; NeighborInfo info; };
-    std::vector<Edge> interPlaneCandidates;
+    Ptr<Node> pre = myPlane.Get((currentNodeIdx + myPlane.GetN() - 1) % myPlane.GetN());
+    Ptr<Node> nxt = myPlane.Get((currentNodeIdx + 1) % myPlane.GetN());
+    Ptr<MobilityModel> preMobility = pre->GetObject<MobilityModel>();
+    Ptr<MobilityModel> nxtMobility = nxt->GetObject<MobilityModel>();
     Ptr<MobilityModel> thisMobility = thisNode->GetObject<MobilityModel>();
+    Vector thisPos = thisMobility->GetPosition();
+    Vector prePos = preMobility->GetPosition();
+    Vector nxtPos = nxtMobility->GetPosition();
 
-    for (const auto& neighbor : allPhysicalNeighbors) {
-        bool isIntraPlane = false;
-        for (const auto& active : m_activeNeighbors) {
-            if (neighbor.neighborNode == active.neighborNode) {
-                isIntraPlane = true;
-                break;
+    // Define the plane using a normal vector
+    Vector v1 = prePos - thisPos;
+    Vector v2 = nxtPos - thisPos;
+    Vector normal = CrossProduct(v1, v2);
+
+    NeighborInfo bestAboveNeighbor;
+    double minAboveDist = -1.0;
+
+    NeighborInfo bestBelowNeighbor;
+    double minBelowDist = -1.0;
+
+    for (const auto& neighbor : allPhysicalNeighbors)
+        if (neighbor.neighborNode == pre || neighbor.neighborNode == nxt) {
+            m_activeNeighbors.push_back(neighbor);
+        } else {
+            Ptr<MobilityModel> candMobility = neighbor.neighborNode->GetObject<MobilityModel>();
+
+            Vector candPos = candMobility->GetPosition();
+            Vector vCand = candPos - thisPos;
+            double dotProduct = normal * vCand;
+            double dist = thisMobility->GetDistanceFrom(candMobility);
+
+            if (dotProduct > 0) { // Above the plane
+                if (minAboveDist < 0 || dist < minAboveDist) {
+                    minAboveDist = dist;
+                    bestAboveNeighbor = neighbor;
+                }
+            } else if (dotProduct < 0) { // Below the plane
+                if (minBelowDist < 0 || dist < minBelowDist) {
+                    minBelowDist = dist;
+                    bestBelowNeighbor = neighbor;
+                }
             }
         }
-        if (!isIntraPlane) {
-            interPlaneCandidates.push_back({thisMobility->GetDistanceFrom(neighbor.neighborNode->GetObject<MobilityModel>()), neighbor});
-        }
+    if (bestAboveNeighbor.neighborNode) {
+        m_activeNeighbors.push_back(bestAboveNeighbor);
     }
-    
-    std::sort(interPlaneCandidates.begin(), interPlaneCandidates.end(), [](const Edge& a, const Edge& b){ return a.dist < b.dist; });
-    
-    uint32_t remainingSlots = m_maxNeighbors - m_activeNeighbors.size();
-    for (size_t i = 0; i < remainingSlots && i < interPlaneCandidates.size(); ++i) {
-        m_activeNeighbors.push_back(interPlaneCandidates[i].info);
+
+    if (bestBelowNeighbor.neighborNode) {
+        m_activeNeighbors.push_back(bestBelowNeighbor);
     }
 
     // Reschedule the timer for the next update.
@@ -289,6 +325,8 @@ SatelliteRoutingProtocol::RouteOutput(Ptr<Packet> p, const Ipv4Header &header, P
     }
 
     if (!bestHopFound) {
+        NS_LOG_WARN("  -> No best next hop found. Using random neighbor.");
+        
         if (m_activeNeighbors.size() == 0) {
             NS_LOG_WARN("  -> No active neighbors found to forward the packet.");
             sockerr = Socket::ERROR_NOROUTETOHOST;

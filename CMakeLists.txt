@@ -4,6 +4,7 @@ build_lib(
     helper/satellite-helper.cc
     helper/inter-satellite-link-helper.cc
     helper/satellite-routing-helper.cc
+    helper/point-to-point-energy-model-helper.cc
     model/satellite-circular-mobility-model.cc
     model/satellite-position-allocator.cc
     model/satellite-channel.cc
@@ -12,10 +13,12 @@ build_lib(
     model/satellite-mac-header.cc
     model/dynamic-delay-p2p-channel.cc
     model/satellite-routing-protocol.cc
+    model/point-to-point-energy-model.cc
   HEADER_FILES
     helper/satellite-helper.h
     helper/inter-satellite-link-helper.h
     helper/satellite-routing-helper.h
+    helper/point-to-point-energy-model-helper.h
     model/satellite-circular-mobility-model.h
     model/satellite-position-allocator.h
     model/satellite-channel.h
@@ -24,6 +27,7 @@ build_lib(
     model/satellite-mac-header.h
     model/dynamic-delay-p2p-channel.h
     model/satellite-routing-protocol.h
+    model/point-to-point-energy-model.h
   LIBRARIES_TO_LINK
     ${libcore}
     ${libnetwork}

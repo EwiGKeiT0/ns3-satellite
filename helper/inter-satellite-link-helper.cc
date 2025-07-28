@@ -3,6 +3,7 @@
 #include "ns3/point-to-point-module.h"
 #include "ns3/log.h"
 #include "ns3/pointer.h"
+#include "ns3/energy-module.h"
 #include "../model/dynamic-delay-p2p-channel.h"
 
 namespace ns3 {
@@ -67,10 +68,7 @@ InterSatelliteLinkHelper::Install(const std::vector<NodeContainer>& orbitalPlane
         {
             Ptr<Node> nodeA = plane.Get(i);
             Ptr<Node> nodeB = plane.Get((i + 1) % plane.GetN());
-            if (i + 1 != plane.GetN() || plane.GetN() > 2)
-            {
-                allDevices.Add(createLink(nodeA, nodeB));
-            }
+            allDevices.Add(createLink(nodeA, nodeB));
         }
     }
 
@@ -90,6 +88,11 @@ InterSatelliteLinkHelper::Install(const std::vector<NodeContainer>& orbitalPlane
             }
         }
     }
+
+    // BasicEnergySourceHelper basicEnergySourceHelper;
+    // basicEnergySourceHelper.Set("BasicEnergySourceInitialEnergyJ", DoubleValue(100));
+    // for (const auto &plane : orbitalPlanes)
+    //     basicEnergySourceHelper.Install(plane);
 
     return allDevices;
 }
