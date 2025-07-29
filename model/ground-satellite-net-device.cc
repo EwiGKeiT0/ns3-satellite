@@ -9,6 +9,7 @@
 #include "ns3/mac48-address.h"
 #include "ns3/node.h"
 #include "ns3/packet.h"
+#include "ns3/queue.h"
 
 namespace ns3
 {
@@ -36,7 +37,8 @@ GroundSatelliteNetDevice::GroundSatelliteNetDevice()
       m_node(nullptr),
       m_ifIndex(0),
       m_mtu(1500),
-      m_linkUp(true)
+      m_linkUp(true),
+      m_txMachineState(false)
 {
     NS_LOG_FUNCTION(this);
 }
@@ -179,9 +181,9 @@ GroundSatelliteNetDevice::Send(Ptr<Packet> packet, const Address& dest, uint16_t
     macHeader.SetProtocol(protocolNumber);
     packet->AddHeader(macHeader);
 
-    if (m_phy)
+    if (m_queue->Enqueue(packet))
     {
-        m_phy->StartTx(packet);
+        SendPacket();
         return true;
     }
     return false;
@@ -252,6 +254,38 @@ GroundSatelliteNetDevice::SetChannel(Ptr<GroundSatelliteChannel> channel)
 {
     NS_LOG_FUNCTION(this << channel);
     m_channel = channel;
+}
+
+void
+GroundSatelliteNetDevice::SetQueue(Ptr<Queue<Packet>> queue)
+{
+    NS_LOG_FUNCTION(this << queue);
+    m_queue = queue;
+}
+
+void
+GroundSatelliteNetDevice::TxMachine()
+{
+    NS_LOG_FUNCTION(this);
+    m_txMachineState = false;
+    SendPacket();
+}
+
+void
+GroundSatelliteNetDevice::SendPacket()
+{
+    NS_LOG_FUNCTION(this);
+    if (m_txMachineState)
+    {
+        return;
+    }
+
+    Ptr<Packet> packet = m_queue->Dequeue();
+    if (packet)
+    {
+        m_txMachineState = true;
+        m_phy->StartTx(packet);
+    }
 }
 
 void

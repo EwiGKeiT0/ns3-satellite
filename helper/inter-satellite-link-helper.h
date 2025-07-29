@@ -48,21 +48,6 @@ private:
     ObjectFactory m_queueFactory;  //!< Factory to create Queues.
 };
 
-
-/***************************************************************
- *  Implementation of the template declared above.
- ***************************************************************/
-template <typename... Ts>
-void
-InterSatelliteLinkHelper::SetQueue(std::string type, Ts&&... args)
-{
-    QueueBase::AppendItemTypeIfNotPresent(type, "Packet");
-
-    m_queueFactory.SetTypeId(type);
-    m_queueFactory.Set(std::forward<Ts>(args)...);
-}
-
-
 } // namespace ns3
 
 #endif /* INTER_SATELLITE_LINK_HELPER_H */

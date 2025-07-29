@@ -3,29 +3,31 @@ build_lib(
   SOURCE_FILES
     helper/satellite-helper.cc
     helper/inter-satellite-link-helper.cc
+    helper/ground-satellite-link-helper.cc
     helper/satellite-routing-helper.cc
     helper/point-to-point-energy-model-helper.cc
     model/satellite-circular-mobility-model.cc
     model/satellite-position-allocator.cc
+    model/inter-satellite-link-channel.cc
     model/ground-satellite-channel.cc
     model/ground-satellite-net-device.cc
     model/ground-satellite-phy.cc
     model/ground-satellite-mac-header.cc
-    model/inter-satellite-link-channel.cc
     model/satellite-routing-protocol.cc
     model/point-to-point-energy-model.cc
   HEADER_FILES
     helper/satellite-helper.h
     helper/inter-satellite-link-helper.h
+    helper/ground-satellite-link-helper.h
     helper/satellite-routing-helper.h
     helper/point-to-point-energy-model-helper.h
     model/satellite-circular-mobility-model.h
     model/satellite-position-allocator.h
+    model/inter-satellite-link-channel.h
     model/ground-satellite-channel.h
     model/ground-satellite-net-device.h
     model/ground-satellite-phy.h
     model/ground-satellite-mac-header.h
-    model/inter-satellite-link-channel.h
     model/satellite-routing-protocol.h
     model/point-to-point-energy-model.h
   LIBRARIES_TO_LINK

@@ -27,7 +27,12 @@ GroundSatellitePhy::GetTypeId()
                                           "Transmission power in dBm.",
                                           DoubleValue(30.0),
                                           MakeDoubleAccessor(&GroundSatellitePhy::m_txPowerDbm),
-                                          MakeDoubleChecker<double>());
+                                          MakeDoubleChecker<double>())
+                            .AddAttribute("DataRate",
+                                          "The transmission data rate.",
+                                          DataRateValue(DataRate("1Mbps")),
+                                          MakeDataRateAccessor(&GroundSatellitePhy::m_dataRate),
+                                          MakeDataRateChecker());
     return tid;
 }
 
@@ -84,6 +89,10 @@ GroundSatellitePhy::StartTx(Ptr<Packet> packet)
     {
         m_channel->Send(this, packet, m_txPowerDbm);
     }
+
+    Time txTime = Seconds(static_cast<double>(packet->GetSize() * 8) / m_dataRate.GetBitRate());
+    auto* dev = dynamic_cast<GroundSatelliteNetDevice*>(PeekPointer(m_device));
+    Simulator::Schedule(txTime, &GroundSatelliteNetDevice::TxMachine, dev);
 }
 
 void
@@ -95,7 +104,7 @@ GroundSatellitePhy::StartRx(Ptr<const Packet> packet, double rxPowerDbm, const A
     {
         // Note: The downcast is safe because we control the creation process.
         // In a more general case, a dynamic_cast with a check would be better.
-        GroundSatelliteNetDevice* dev = dynamic_cast<GroundSatelliteNetDevice*>(PeekPointer(m_device));
+        auto* dev = dynamic_cast<GroundSatelliteNetDevice*>(PeekPointer(m_device));
         if (dev)
         {
             dev->Receive(packet->Copy(), senderAddress);

@@ -3,6 +3,7 @@
 
 #include "ns3/net-device.h"
 #include "ns3/traced-callback.h"
+#include "ns3/queue.h"
 
 namespace ns3
 {
@@ -56,9 +57,12 @@ public:
     void SetPhy(Ptr<GroundSatellitePhy> phy);
     void SetChannel(Ptr<GroundSatelliteChannel> channel);
     void Receive(Ptr<Packet> packet, const Address& sender);
+    void SetQueue(Ptr<Queue<Packet>> queue);
+    void TxMachine(void);
 
 private:
     void DoDispose() override;
+    void SendPacket();
 
     Ptr<GroundSatellitePhy> m_phy;
     Ptr<GroundSatelliteChannel> m_channel;
@@ -70,6 +74,8 @@ private:
     ReceiveCallback m_rxCallback;
     PromiscReceiveCallback m_promiscRxCallback;
     TracedCallback<> m_linkChangeCallback;
+    Ptr<Queue<Packet>> m_queue;
+    bool m_txMachineState; //!< True if the transmitter is busy.
 };
 
 } // namespace ns3

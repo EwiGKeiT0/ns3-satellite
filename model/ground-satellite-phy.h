@@ -5,6 +5,7 @@
 #include "ns3/ptr.h"
 #include "ns3/nstime.h"
 #include "ns3/address.h"
+#include "ns3/data-rate.h"
 
 namespace ns3
 {
@@ -69,6 +70,7 @@ private:
     Ptr<Node> m_node;        //!< The associated Node
     Ptr<GroundSatelliteChannel> m_channel; //!< The associated channel
     double m_txPowerDbm; //!< Transmission power in dBm
+    DataRate m_dataRate; //!< The transmission data rate
 };
 
 } // namespace ns3

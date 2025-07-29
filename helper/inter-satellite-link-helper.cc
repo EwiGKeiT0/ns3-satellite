@@ -25,6 +25,16 @@ void InterSatelliteLinkHelper::SetDeviceAttribute(std::string name, const Attrib
     m_deviceFactory.Set(name, value);
 }
 
+template <typename... Ts>
+void
+InterSatelliteLinkHelper::SetQueue(std::string type, Ts&&... args)
+{
+    QueueBase::AppendItemTypeIfNotPresent(type, "Packet");
+
+    m_queueFactory.SetTypeId(type);
+    m_queueFactory.Set(std::forward<Ts>(args)...);
+}
+
 NetDeviceContainer
 InterSatelliteLinkHelper::Install(const std::vector<NodeContainer>& orbitalPlanes)
 {
