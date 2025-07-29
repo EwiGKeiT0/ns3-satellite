@@ -1,4 +1,4 @@
-#include "dynamic-delay-p2p-channel.h"
+#include "inter-satellite-link-channel.h"
 #include "ns3/attribute.h"
 #include "ns3/pointer.h"
 #include "ns3/log.h"
@@ -14,40 +14,40 @@ namespace {
 
 namespace ns3 {
 
-NS_LOG_COMPONENT_DEFINE("DynamicDelayPointToPointChannel");
+NS_LOG_COMPONENT_DEFINE("InterSatelliteLinkChannel");
 
-NS_OBJECT_ENSURE_REGISTERED(DynamicDelayPointToPointChannel);
+NS_OBJECT_ENSURE_REGISTERED(InterSatelliteLinkChannel);
 
 TypeId
-DynamicDelayPointToPointChannel::GetTypeId(void)
+InterSatelliteLinkChannel::GetTypeId(void)
 {
-    static TypeId tid = TypeId("ns3::DynamicDelayPointToPointChannel")
+    static TypeId tid = TypeId("ns3::InterSatelliteLinkChannel")
         .SetParent<PointToPointChannel>()
         .SetGroupName("Satellite")
-        .AddConstructor<DynamicDelayPointToPointChannel>()
+        .AddConstructor<InterSatelliteLinkChannel>()
         .AddAttribute("NodeA", "The first node connected to this channel.",
                       PointerValue(),
-                      MakePointerAccessor(&DynamicDelayPointToPointChannel::m_nodeA),
+                      MakePointerAccessor(&InterSatelliteLinkChannel::m_nodeA),
                       MakePointerChecker<Node>())
         .AddAttribute("NodeB", "The second node connected to this channel.",
                       PointerValue(),
-                      MakePointerAccessor(&DynamicDelayPointToPointChannel::m_nodeB),
+                      MakePointerAccessor(&InterSatelliteLinkChannel::m_nodeB),
                       MakePointerChecker<Node>());
     return tid;
 }
 
-DynamicDelayPointToPointChannel::DynamicDelayPointToPointChannel() 
+InterSatelliteLinkChannel::InterSatelliteLinkChannel() 
     : m_nodeA(nullptr), m_nodeB(nullptr)
 {
     NS_LOG_FUNCTION(this);
 }
 
-DynamicDelayPointToPointChannel::~DynamicDelayPointToPointChannel()
+InterSatelliteLinkChannel::~InterSatelliteLinkChannel()
 {
 }
 
 void
-DynamicDelayPointToPointChannel::Attach(Ptr<PointToPointNetDevice> device)
+InterSatelliteLinkChannel::Attach(Ptr<PointToPointNetDevice> device)
 {
     PointToPointChannel::Attach(device);
     // Nodes can be set via attributes, but we can keep this as a fallback.
@@ -62,7 +62,7 @@ DynamicDelayPointToPointChannel::Attach(Ptr<PointToPointNetDevice> device)
 }
 
 Time
-DynamicDelayPointToPointChannel::GetDelay(void) const
+InterSatelliteLinkChannel::GetDelay(void) const
 {
     if (!m_nodeA || !m_nodeB)
     {
@@ -89,7 +89,7 @@ DynamicDelayPointToPointChannel::GetDelay(void) const
 
 
 bool
-DynamicDelayPointToPointChannel::TransmitStart(Ptr<const Packet> p, Ptr<PointToPointNetDevice> src, Time txTime)
+InterSatelliteLinkChannel::TransmitStart(Ptr<const Packet> p, Ptr<PointToPointNetDevice> src, Time txTime)
 {
     NS_LOG_FUNCTION(this << p << src << txTime);
 

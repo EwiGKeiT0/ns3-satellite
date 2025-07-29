@@ -19,7 +19,7 @@ SatelliteRoutingHelper::~SatelliteRoutingHelper()
 SatelliteRoutingHelper*
 SatelliteRoutingHelper::Copy() const
 {
-    SatelliteRoutingHelper* copy = new SatelliteRoutingHelper();
+    auto* copy = new SatelliteRoutingHelper();
     copy->m_orbitalPlanes = this->m_orbitalPlanes;
     return copy;
 }
@@ -61,11 +61,10 @@ SatelliteRoutingHelper::Create(Ptr<Node> node) const
     }
 }
 
-
 void
 SatelliteRoutingHelper::SetOrbitalPlanes(const std::vector<NodeContainer>& orbitalPlanes)
 {
-    m_orbitalPlanes = orbitalPlanes;
+    m_orbitalPlanes = std::make_shared<const std::vector<NodeContainer>>(orbitalPlanes);
 }
 
 } // namespace ns3 

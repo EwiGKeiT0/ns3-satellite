@@ -15,13 +15,13 @@ namespace ns3 {
  * on-the-fly based on the current distance between the two connected nodes.
  * It's designed for mobile nodes where the propagation time changes.
  */
-class DynamicDelayPointToPointChannel : public PointToPointChannel
+class InterSatelliteLinkChannel : public PointToPointChannel
 {
 public:
     static TypeId GetTypeId(void);
 
-    DynamicDelayPointToPointChannel();
-    ~DynamicDelayPointToPointChannel() override;
+    InterSatelliteLinkChannel();
+    ~InterSatelliteLinkChannel() override;
 
     void Attach(Ptr<PointToPointNetDevice> device);
     Time GetDelay(void) const;

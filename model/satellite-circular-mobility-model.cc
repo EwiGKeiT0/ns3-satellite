@@ -58,7 +58,7 @@ Vector
 SatelliteCircularMobilityModel::DoGetPosition (void) const
 {
     double time = Simulator::Now ().GetSeconds ();
-    double radius = 6371000.0 + m_altitude; // Earth radius + altitude
+    double radius = 6371e3 + m_altitude; // Earth radius + altitude
     double speed = std::sqrt(GM_EARTH / radius);
     double angularVelocity = speed / radius;
     double initialAngleRad = m_initialAngleDegrees * M_PI / 180.0;

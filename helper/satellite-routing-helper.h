@@ -4,6 +4,7 @@
 #include "ns3/ipv4-routing-helper.h"
 #include "ns3/node-container.h"
 #include <vector>
+#include <memory>
 
 namespace ns3 {
 
@@ -30,18 +31,13 @@ public:
     Ptr<Ipv4RoutingProtocol> Create(Ptr<Node> node) const override;
 
     /**
-     * @brief Set the orbital topology for the routing protocol.
-     * 
-     * This is a custom method for this helper to pass topology data
-     * to the routing protocol instances it creates.
-     * 
-     * @param orbitalPlanes The vector of NodeContainers representing the constellation.
+     * @brief Set the orbital planes for the routing protocol.
+     * @param orbitalPlanes A vector of NodeContainers, each representing an orbital plane.
      */
     void SetOrbitalPlanes(const std::vector<NodeContainer>& orbitalPlanes);
 
 private:
-    // This will hold the topology data to be passed to each protocol instance.
-    std::vector<NodeContainer> m_orbitalPlanes;
+    std::shared_ptr<const std::vector<NodeContainer>> m_orbitalPlanes;
 };
 
 } // namespace ns3

@@ -53,6 +53,13 @@ SatelliteRoutingProtocol::DoInitialize()
 }
 
 void
+SatelliteRoutingProtocol::DoDispose()
+{
+    m_orbitalPlanes.reset();
+    Ipv4RoutingProtocol::DoDispose();
+}
+
+void
 SatelliteRoutingProtocol::Start()
 {
     m_updateTimer.Schedule(Seconds(0.1));
@@ -97,7 +104,8 @@ SatelliteRoutingProtocol::SetIpv4(Ptr<Ipv4> ipv4)
 }
 
 void
-SatelliteRoutingProtocol::SetOrbitalPlanes(const std::vector<NodeContainer>& orbitalPlanes)
+SatelliteRoutingProtocol::SetOrbitalPlanes(
+    std::shared_ptr<const std::vector<NodeContainer>> orbitalPlanes)
 {
     m_orbitalPlanes = orbitalPlanes;
 }
@@ -105,13 +113,14 @@ SatelliteRoutingProtocol::SetOrbitalPlanes(const std::vector<NodeContainer>& orb
 void
 SatelliteRoutingProtocol::PrintRoutingTable(Ptr<OutputStreamWrapper> stream, Time::Unit unit) const
 {
-    *stream->GetStream() << "SatelliteRoutingProtocol: Routing table for Node " << m_ipv4->GetObject<Node>()->GetId() 
-                       << " at time " << Simulator::Now().As(unit) << std::endl;
-    *stream->GetStream() << "  Active Neighbors (" << m_activeNeighbors.size() << " total):" << std::endl;
+    // *stream->GetStream() << "SatelliteRoutingProtocol: Routing table for Node " << m_ipv4->GetObject<Node>()->GetId() 
+    //                    << " at time " << Simulator::Now().As(unit) << std::endl;
+    // *stream->GetStream() << "  Active Neighbors (" << m_activeNeighbors.size() << " total):" << std::endl;
     for (const auto& neighbor : m_activeNeighbors)
     {
-        *stream->GetStream() << "    - Neighbor Node ID: " << neighbor.neighborNode->GetId() 
-                           << ", Local Device IfIndex: " << neighbor.localDevice->GetIfIndex() << std::endl;
+        // *stream->GetStream() << "    - Neighbor Node ID: " << neighbor.neighborNode->GetId() 
+        //                    << ", Local Device IfIndex: " << neighbor.localDevice->GetIfIndex() << std::endl;
+        *stream->GetStream() << "addLines(" << m_ipv4->GetObject<Node>()->GetId() << ", " << neighbor.neighborNode->GetId() << ");" << std::endl;
     }
 }
 
@@ -136,9 +145,9 @@ SatelliteRoutingProtocol::UpdateActiveNeighbors()
     int currentNodeIdx = -1;
 
     // Find our own position in the topology definition
-    for (size_t i = 0; i < m_orbitalPlanes.size(); ++i) {
-        for (size_t j = 0; j < m_orbitalPlanes[i].GetN(); ++j) {
-            if (m_orbitalPlanes[i].Get(j) == thisNode) {
+    for (size_t i = 0; i < m_orbitalPlanes->size(); ++i) {
+        for (size_t j = 0; j < m_orbitalPlanes->at(i).GetN(); ++j) {
+            if (m_orbitalPlanes->at(i).Get(j) == thisNode) {
                 currentPlaneIdx = i;
                 currentNodeIdx = j;
                 break;
@@ -170,7 +179,7 @@ SatelliteRoutingProtocol::UpdateActiveNeighbors()
     // --- Step 2: Apply routing logic based on the discovered neighbors ---
 
     // 2. Find best inter-plane neighbors using geometry
-    const auto& myPlane = m_orbitalPlanes[currentPlaneIdx];
+    const auto& myPlane = m_orbitalPlanes->at(currentPlaneIdx);
     Ptr<Node> pre = myPlane.Get((currentNodeIdx + myPlane.GetN() - 1) % myPlane.GetN());
     Ptr<Node> nxt = myPlane.Get((currentNodeIdx + 1) % myPlane.GetN());
     Ptr<MobilityModel> preMobility = pre->GetObject<MobilityModel>();

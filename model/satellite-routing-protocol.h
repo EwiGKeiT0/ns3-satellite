@@ -9,6 +9,7 @@
 #include "ns3/timer.h"
 #include <map>
 #include <vector>
+#include <memory>
 
 namespace ns3 {
 
@@ -41,9 +42,14 @@ public:
     static const std::map<Ipv4Address, Ptr<Node>>& GetIpToNodeMap();
 
     void SetIpv4(Ptr<Ipv4> ipv4) override;
-    void SetOrbitalPlanes(const std::vector<NodeContainer>& orbitalPlanes);
+    /**
+     * @brief Set the orbital planes for the routing protocol.
+     * @param orbitalPlanes A shared pointer to the vector of NodeContainers, each representing an orbital plane.
+     */
+    void SetOrbitalPlanes(std::shared_ptr<const std::vector<NodeContainer>> orbitalPlanes);
     void PrintRoutingTable(Ptr<OutputStreamWrapper> stream, Time::Unit unit = Time::S) const override;
     void DoInitialize() override;
+    void DoDispose() override;
 
 private:
     struct NeighborInfo {
@@ -63,8 +69,8 @@ private:
 
     // Static data, shared across all instances
     static std::map<Ipv4Address, Ptr<Node>> m_ipToNodeMap;
-    // Non-static, each protocol instance needs the full topology
-    std::vector<NodeContainer> m_orbitalPlanes; 
+    /// The collection of orbital planes, which defines the satellite constellation.
+    std::shared_ptr<const std::vector<NodeContainer>> m_orbitalPlanes; 
 };
 
 } // namespace ns3

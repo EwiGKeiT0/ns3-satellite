@@ -4,7 +4,7 @@
 #include "ns3/log.h"
 #include "ns3/pointer.h"
 #include "ns3/energy-module.h"
-#include "../model/dynamic-delay-p2p-channel.h"
+#include "../model/inter-satellite-link-channel.h"
 
 namespace ns3 {
 
@@ -34,10 +34,10 @@ InterSatelliteLinkHelper::Install(const std::vector<NodeContainer>& orbitalPlane
     auto createLink = [this](Ptr<Node> nodeA, Ptr<Node> nodeB) -> NetDeviceContainer {
         // 1. Create our custom channel using an ObjectFactory
         ObjectFactory factory;
-        factory.SetTypeId("ns3::DynamicDelayPointToPointChannel");
+        factory.SetTypeId("ns3::InterSatelliteLinkChannel");
         factory.Set("NodeA", PointerValue(nodeA));
         factory.Set("NodeB", PointerValue(nodeB));
-        Ptr<DynamicDelayPointToPointChannel> channel = factory.Create<DynamicDelayPointToPointChannel>();
+        Ptr<InterSatelliteLinkChannel> channel = factory.Create<InterSatelliteLinkChannel>();
         
         // 2. Create the two NetDevices
         NetDeviceContainer devices;
