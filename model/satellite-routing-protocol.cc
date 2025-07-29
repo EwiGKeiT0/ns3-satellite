@@ -3,6 +3,8 @@
 #include "ns3/socket.h"
 #include "ns3/ipv4-header.h"
 #include "ns3/mobility-model.h"
+#include "satellite-circular-mobility-model.h"
+#include "ns3/constant-position-mobility-model.h"
 #include "ns3/point-to-point-net-device.h"
 #include "ns3/simulator.h"
 #include "ns3/channel.h"
@@ -48,8 +50,19 @@ SatelliteRoutingProtocol::~SatelliteRoutingProtocol() {
 void
 SatelliteRoutingProtocol::DoInitialize()
 {
-    Ipv4RoutingProtocol::DoInitialize();
-    Start();
+    // Check if this node is a satellite or a ground station
+    Ptr<Node> thisNode = m_ipv4->GetObject<Node>();
+    if (thisNode->GetObject<SatelliteCircularMobilityModel>())
+    {
+        // This is a satellite, start the neighbor update process
+        Ipv4RoutingProtocol::DoInitialize();
+        Start();
+    }
+    else
+    {
+        // This is a ground station, do not start the timer
+        Ipv4RoutingProtocol::DoInitialize();
+    }
 }
 
 void
@@ -171,7 +184,10 @@ SatelliteRoutingProtocol::UpdateActiveNeighbors()
                 channel->GetDevice(1) : channel->GetDevice(0);
             if (peerDevice) {
                 Ptr<Node> peerNode = peerDevice->GetNode();
-                allPhysicalNeighbors.push_back({peerNode, localDevice});
+                // Only consider other satellites as potential inter-satellite neighbors
+                if (peerNode && peerNode->GetObject<SatelliteCircularMobilityModel>()) {
+                    allPhysicalNeighbors.push_back({peerNode, localDevice});
+                }
             }
         }
     }
@@ -278,36 +294,72 @@ SatelliteRoutingProtocol::RouteOutput(Ptr<Packet> p, const Ipv4Header &header, P
 {
     if (!p) return nullptr; 
 
-    // --- Start of Source Address Correction Logic ---
-    Ipv4Header Hdr = header; // Create a mutable copy.
-    bool sourceAddressNeedsUpdate = (Hdr.GetSource() == Ipv4Address("102.102.102.102"));
-    if (sourceAddressNeedsUpdate) {
-        NS_LOG_INFO("RouteOutput: Detected temporary source address. Will update after route selection.");
-    }
-    // --- End of Source Address Correction Logic ---
-
     Ptr<Node> thisNode = m_ipv4->GetObject<Node>();
     NS_LOG_INFO("RouteOutput on Node " << thisNode->GetId() 
-                << ": Packet from " << Hdr.GetSource() 
-                << " to " << Hdr.GetDestination());
+                << ": Packet from " << header.GetSource() 
+                << " to " << header.GetDestination());
 
-    auto it = m_ipToNodeMap.find(Hdr.GetDestination());
+    auto it = m_ipToNodeMap.find(header.GetDestination());
     if (it == m_ipToNodeMap.end()) {
-        NS_LOG_WARN("  -> Destination " << Hdr.GetDestination() << " not found in IP-to-Node map.");
+        NS_LOG_WARN("  -> Destination " << header.GetDestination() << " not found in IP-to-Node map.");
         sockerr = Socket::ERROR_NOROUTETOHOST;
         return nullptr;
     }
     Ptr<Node> destNode = it->second;
     NS_LOG_INFO("  -> Destination Node ID: " << destNode->GetId());
+    
+    // Case 1: Current node is a Ground Station
+    if (thisNode->GetObject<ConstantPositionMobilityModel>()) {
+        NS_LOG_INFO("  -> Current node is a Ground Station. Finding closest satellite to forward to.");
 
-    // This check should not be necessary if the stack works correctly, 
-    // but as a safeguard, we check if the destination is local.
-    // If so, RouteOutput should not have been called.
-    if (m_ipv4->GetInterfaceForAddress(header.GetDestination()) >= 0) {
-       NS_LOG_WARN("  -> Destination is local, RouteOutput should not have been called. Aborting.");
-       return nullptr;
+        double minDistance = -1.0;
+        Ptr<NetDevice> bestDevice = nullptr;
+        
+        // Find the satellite neighbor that is closest to this ground station
+        for (uint32_t i = 1; i < m_ipv4->GetNInterfaces(); ++i) {
+            Ptr<NetDevice> dev = m_ipv4->GetNetDevice(i);
+            Ptr<Channel> ch = dev->GetChannel();
+            if (ch && ch->GetNDevices() == 2) {
+                Ptr<NetDevice> peerDev = (ch->GetDevice(0) == dev) ? ch->GetDevice(1) : ch->GetDevice(0);
+                Ptr<Node> peerNode = peerDev->GetNode();
+
+                // Ensure the peer is a satellite
+                if (peerNode && peerNode->GetObject<SatelliteCircularMobilityModel>()) {
+                    double dist = thisNode->GetObject<MobilityModel>()->GetDistanceFrom(peerNode->GetObject<MobilityModel>());
+                    if (minDistance < 0 || dist < minDistance) {
+                        minDistance = dist;
+                        bestDevice = dev;
+                    }
+                }
+            }
+        }
+
+        if (bestDevice) {
+            // The gateway is the destination itself since we assume the satellite can handle it from there.
+            // Or more correctly, the IP of the peer satellite.
+            Ptr<Channel> ch = bestDevice->GetChannel();
+            Ptr<NetDevice> peerDev = (ch->GetDevice(0) == bestDevice) ? ch->GetDevice(1) : ch->GetDevice(0);
+            NS_LOG_INFO("  -> Closest satellite is Node " << peerDev->GetNode()->GetId() << " at distance " << minDistance);
+            
+            Ptr<Ipv4Route> route = Create<Ipv4Route>();
+            route->SetDestination(header.GetDestination());
+            route->SetSource(m_ipv4->GetAddress(m_ipv4->GetInterfaceForDevice(bestDevice), 0).GetLocal());
+            
+            Ptr<Ipv4> peerIpv4 = peerDev->GetNode()->GetObject<Ipv4>();
+            int32_t peerIfIndex = peerIpv4->GetInterfaceForDevice(peerDev);
+            Ipv4Address gateway = peerIpv4->GetAddress(peerIfIndex, 0).GetLocal();
+
+            route->SetGateway(gateway);
+            route->SetOutputDevice(bestDevice);
+            return route;
+        }
+
+        NS_LOG_WARN("  -> Ground station has no satellite links to forward packet.");
+        sockerr = Socket::ERROR_NOROUTETOHOST;
+        return nullptr;
     }
 
+    // Case 2: Current node is a Satellite
     Ptr<MobilityModel> destMobility = destNode->GetObject<MobilityModel>();
     if (!destMobility) { 
         NS_LOG_ERROR("  -> Destination node " << destNode->GetId() << " has no mobility model.");
@@ -319,13 +371,10 @@ SatelliteRoutingProtocol::RouteOutput(Ptr<Packet> p, const Ipv4Header &header, P
     NeighborInfo bestNextHop;
     bool bestHopFound = false;
 
-    NS_LOG_DEBUG("  -> Finding best next hop among " << m_activeNeighbors.size() << " active neighbors:");
+    // Check if any neighbor is closer
     for (const auto& neighborInfo : m_activeNeighbors) {
         Ptr<MobilityModel> neighborMobility = neighborInfo.neighborNode->GetObject<MobilityModel>();
         double dist = neighborMobility->GetDistanceFrom(destMobility);
-        NS_LOG_DEBUG("    - Considering neighbor Node " << neighborInfo.neighborNode->GetId() 
-                     << " (dist to dest: " << dist << ")");
-
         if (dist < minDistanceToDest) {
             minDistanceToDest = dist;
             bestNextHop = neighborInfo;
@@ -333,60 +382,57 @@ SatelliteRoutingProtocol::RouteOutput(Ptr<Packet> p, const Ipv4Header &header, P
         }
     }
 
-    if (!bestHopFound) {
-        NS_LOG_WARN("  -> No best next hop found. Using random neighbor.");
+    // Subcase 2a: Destination is a Ground Station
+    if (destNode->GetObject<ConstantPositionMobilityModel>()) {
+        NS_LOG_INFO("  -> Destination is a Ground Station.");
         
-        if (m_activeNeighbors.size() == 0) {
-            NS_LOG_WARN("  -> No active neighbors found to forward the packet.");
+        // If no neighbor is closer, we are the best hop. Route directly to the ground station.
+        if (!bestHopFound) {
+            NS_LOG_INFO("  -> This satellite is the closest hop to the ground station. Routing directly.");
+            // We need to find the specific NetDevice that connects to this ground station.
+            for (uint32_t i = 1; i < m_ipv4->GetNInterfaces(); ++i) {
+                Ptr<NetDevice> dev = m_ipv4->GetNetDevice(i);
+                Ptr<Channel> ch = dev->GetChannel();
+                if (ch && ch->GetNDevices() == 2) {
+                    Ptr<NetDevice> peerDev = (ch->GetDevice(0) == dev) ? ch->GetDevice(1) : ch->GetDevice(0);
+                    if (peerDev && peerDev->GetNode() == destNode) {
+                        Ptr<Ipv4Route> route = Create<Ipv4Route>();
+                        route->SetDestination(header.GetDestination());
+                        route->SetSource(m_ipv4->GetAddress(i, 0).GetLocal());
+                        route->SetGateway(header.GetDestination()); // The gateway is the final destination
+                        route->SetOutputDevice(dev);
+                        return route;
+                    }
+                }
+            }
+             NS_LOG_WARN("  -> Could not find the device connected to the destination ground station.");
+             sockerr = Socket::ERROR_NOROUTETOHOST;
+             return nullptr;
+        }
+    } 
+    // Subcase 2b: Destination is another Satellite
+    else {
+        if (!bestHopFound) {
+            NS_LOG_WARN("  -> No greedy hop found for satellite destination. Cannot forward.");
             sockerr = Socket::ERROR_NOROUTETOHOST;
             return nullptr;
-        } else {
-            Ptr<UniformRandomVariable> uniformRv = CreateObject<UniformRandomVariable>();
-            uniformRv->SetAttribute("Min", DoubleValue(0.0));
-            uniformRv->SetAttribute("Max", DoubleValue((int)m_activeNeighbors.size() - 1));
-            bestNextHop = m_activeNeighbors[uniformRv->GetInteger()];
         }
     }
     
-    NS_LOG_INFO("  -> Best next hop: Node " << bestNextHop.neighborNode->GetId() 
-                << " via local ifIndex " << bestNextHop.localDevice->GetIfIndex()
-                << " (dist: " << minDistanceToDest << ")");
+    NS_LOG_INFO("  -> Best inter-satellite next hop: Node " << bestNextHop.neighborNode->GetId() 
+                << " via local ifIndex " << bestNextHop.localDevice->GetIfIndex());
 
-    // --- Start of Source Address Finalization Logic ---
-    if (sourceAddressNeedsUpdate) {
-        Ptr<Ipv4> ipv4 = thisNode->GetObject<Ipv4>();
-        int32_t ifIndex = ipv4->GetInterfaceForDevice(bestNextHop.localDevice);
-        if (ifIndex >= 0) {
-            Ipv4InterfaceAddress ifAddr = ipv4->GetAddress(ifIndex, 0);
-            Hdr.SetSource(ifAddr.GetLocal());
-
-            NS_LOG_INFO("  -> Updated source address to " << Hdr.GetSource() 
-                        << " based on output ifIndex " << ifIndex);
-        }
-    }
-    // --- End of Source Address Finalization Logic ---
-    
     Ptr<Ipv4Route> route = Create<Ipv4Route>();
-    route->SetDestination(Hdr.GetDestination());
-    route->SetSource(Hdr.GetSource());
+    route->SetDestination(header.GetDestination());
+    route->SetSource(m_ipv4->GetAddress(m_ipv4->GetInterfaceForDevice(bestNextHop.localDevice), 0).GetLocal());
 
-    // The gateway is the IP address of the interface on the neighboring node.
-    // We need to find this address by traversing the channel from our local device.
-    Ptr<Channel> channel = bestNextHop.localDevice->GetChannel();
-    Ptr<NetDevice> peerDevice = (channel->GetDevice(0) == bestNextHop.localDevice) 
-                              ? channel->GetDevice(1) 
-                              : channel->GetDevice(0);
-    Ptr<Ipv4> peerIpv4 = peerDevice->GetNode()->GetObject<Ipv4>();
-    int32_t peerInterfaceIndex = peerIpv4->GetInterfaceForDevice(peerDevice);
-
+    Ptr<Ipv4> peerIpv4 = bestNextHop.neighborNode->GetObject<Ipv4>();
+    int32_t peerInterfaceIndex = peerIpv4->GetInterfaceForDevice(bestNextHop.localDevice->GetChannel()->GetDevice(0) == bestNextHop.localDevice ? bestNextHop.localDevice->GetChannel()->GetDevice(1) : bestNextHop.localDevice->GetChannel()->GetDevice(0));
     Ipv4Address gatewayAddress = peerIpv4->GetAddress(peerInterfaceIndex, 0).GetLocal();
+    
     route->SetGateway(gatewayAddress);
     route->SetOutputDevice(bestNextHop.localDevice);
-
-    NS_LOG_INFO("  -> Created route: Dest " << route->GetDestination() 
-                << ", Gateway " << route->GetGateway() 
-                << ", Output IfIndex " << route->GetOutputDevice()->GetIfIndex());
-
+    
     return route;
 }
 
