@@ -10,6 +10,9 @@
 #include "ns3/node.h"
 #include "ns3/packet.h"
 #include "ns3/queue.h"
+#include "ns3/simulator.h"
+#include "ns3/pointer.h"
+#include "ns3/llc-snap-header.h"
 
 namespace ns3
 {
@@ -27,7 +30,20 @@ GroundSatelliteNetDevice::GetTypeId()
         TypeId("ns3::GroundSatelliteNetDevice")
             .SetParent<NetDevice>()
             .SetGroupName("Satellite")
-            .AddConstructor<GroundSatelliteNetDevice>();
+            .AddConstructor<GroundSatelliteNetDevice>()
+            .AddAttribute("DataRate",
+                          "The default data rate for this device.",
+                          DataRateValue(DataRate("1Mbps")),
+                          MakeDataRateAccessor(&GroundSatelliteNetDevice::m_dataRate),
+                          MakeDataRateChecker())
+            .AddTraceSource("MacTx",
+                            "Trace source indicating a packet has been transmitted.",
+                            MakeTraceSourceAccessor(&GroundSatelliteNetDevice::m_macTxTrace),
+                            "ns3::Packet::TracedCallback")
+            .AddTraceSource("MacRx",
+                            "Trace source indicating a packet has been received.",
+                            MakeTraceSourceAccessor(&GroundSatelliteNetDevice::m_macRxTrace),
+                            "ns3::Packet::TracedCallback");
     return tid;
 }
 
@@ -183,7 +199,7 @@ GroundSatelliteNetDevice::Send(Ptr<Packet> packet, const Address& dest, uint16_t
 
     if (m_queue->Enqueue(packet))
     {
-        SendPacket();
+        Simulator::ScheduleNow(&GroundSatelliteNetDevice::TxMachine, this);
         return true;
     }
     return false;
@@ -267,14 +283,6 @@ void
 GroundSatelliteNetDevice::TxMachine()
 {
     NS_LOG_FUNCTION(this);
-    m_txMachineState = false;
-    SendPacket();
-}
-
-void
-GroundSatelliteNetDevice::SendPacket()
-{
-    NS_LOG_FUNCTION(this);
     if (m_txMachineState)
     {
         return;
@@ -284,6 +292,7 @@ GroundSatelliteNetDevice::SendPacket()
     if (packet)
     {
         m_txMachineState = true;
+        m_macTxTrace(packet);
         m_phy->StartTx(packet);
     }
 }
@@ -295,13 +304,11 @@ GroundSatelliteNetDevice::Receive(Ptr<Packet> packet, const Address& sender)
 
     GroundSatelliteMacHeader macHeader;
     packet->RemoveHeader(macHeader);
-    
-    Address sourceAddress = macHeader.GetSource();
+    m_macRxTrace(packet);
 
-    NS_LOG_INFO("Packet received for " << GetAddress() << " from " << sourceAddress);
     if (!m_rxCallback.IsNull())
     {
-        m_rxCallback(this, packet, macHeader.GetProtocol(), sourceAddress);
+        m_rxCallback(this, packet, macHeader.GetProtocol(), macHeader.GetSource());
     }
 }
 

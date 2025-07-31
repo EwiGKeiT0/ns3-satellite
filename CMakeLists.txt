@@ -5,7 +5,7 @@ build_lib(
     helper/inter-satellite-link-helper.cc
     helper/ground-satellite-link-helper.cc
     helper/satellite-routing-helper.cc
-    helper/point-to-point-energy-model-helper.cc
+    helper/satellite-energy-model-helper.cc
     model/satellite-circular-mobility-model.cc
     model/satellite-position-allocator.cc
     model/inter-satellite-link-channel.cc
@@ -14,13 +14,13 @@ build_lib(
     model/ground-satellite-phy.cc
     model/ground-satellite-mac-header.cc
     model/satellite-routing-protocol.cc
-    model/point-to-point-energy-model.cc
+    model/satellite-energy-model.cc
   HEADER_FILES
     helper/satellite-helper.h
     helper/inter-satellite-link-helper.h
     helper/ground-satellite-link-helper.h
     helper/satellite-routing-helper.h
-    helper/point-to-point-energy-model-helper.h
+    helper/satellite-energy-model-helper.h
     model/satellite-circular-mobility-model.h
     model/satellite-position-allocator.h
     model/inter-satellite-link-channel.h
@@ -29,7 +29,7 @@ build_lib(
     model/ground-satellite-phy.h
     model/ground-satellite-mac-header.h
     model/satellite-routing-protocol.h
-    model/point-to-point-energy-model.h
+    model/satellite-energy-model.h
   LIBRARIES_TO_LINK
     ${libcore}
     ${libnetwork}

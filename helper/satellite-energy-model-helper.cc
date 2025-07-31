@@ -1,19 +1,19 @@
-#include "point-to-point-energy-model-helper.h"
+#include "satellite-energy-model-helper.h"
 #include "ns3/node.h"
 
 namespace ns3 {
 
-PointToPointEnergyModelHelper::PointToPointEnergyModelHelper()
+SatelliteEnergyModelHelper::SatelliteEnergyModelHelper()
 {
-    m_factory.SetTypeId("ns3::PointToPointEnergyModel");
+    m_factory.SetTypeId("ns3::SatelliteEnergyModel");
 }
 
-void PointToPointEnergyModelHelper::Set(std::string name, const AttributeValue &value)
+void SatelliteEnergyModelHelper::Set(std::string name, const AttributeValue &value)
 {
     m_factory.Set(name, value);
 }
 
-void PointToPointEnergyModelHelper::Install(const NetDeviceContainer &devices, const energy::EnergySourceContainer &sources) const
+void SatelliteEnergyModelHelper::Install(const NetDeviceContainer &devices, const energy::EnergySourceContainer &sources) const
 {
     for (uint32_t i = 0; i < devices.GetN(); ++i)
     {

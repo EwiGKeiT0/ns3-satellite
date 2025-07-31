@@ -7,10 +7,10 @@
 
 namespace ns3 {
 
-class PointToPointEnergyModelHelper
+class SatelliteEnergyModelHelper
 {
 public:
-  PointToPointEnergyModelHelper();
+  SatelliteEnergyModelHelper();
   void Set(std::string name, const AttributeValue &value);
   void Install(const NetDeviceContainer &devices, const energy::EnergySourceContainer &sources) const;
 

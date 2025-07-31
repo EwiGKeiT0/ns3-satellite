@@ -4,6 +4,7 @@
 #include "ns3/net-device.h"
 #include "ns3/traced-callback.h"
 #include "ns3/queue.h"
+#include "ns3/data-rate.h"
 
 namespace ns3
 {
@@ -60,9 +61,11 @@ public:
     void SetQueue(Ptr<Queue<Packet>> queue);
     void TxMachine(void);
 
+    TracedCallback<Ptr<const Packet>> m_macTxTrace;
+    TracedCallback<Ptr<const Packet>> m_macRxTrace;
+
 private:
     void DoDispose() override;
-    void SendPacket();
 
     Ptr<GroundSatellitePhy> m_phy;
     Ptr<GroundSatelliteChannel> m_channel;
@@ -76,6 +79,7 @@ private:
     TracedCallback<> m_linkChangeCallback;
     Ptr<Queue<Packet>> m_queue;
     bool m_txMachineState; //!< True if the transmitter is busy.
+    DataRate m_dataRate;   //!< The data rate of the device.
 };
 
 } // namespace ns3

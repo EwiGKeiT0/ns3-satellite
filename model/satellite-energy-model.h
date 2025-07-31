@@ -7,12 +7,12 @@
 
 namespace ns3 {
 
-class PointToPointEnergyModel : public energy::DeviceEnergyModel
+class SatelliteEnergyModel : public energy::DeviceEnergyModel
 {
 public:
     static TypeId GetTypeId();
-    PointToPointEnergyModel();
-    ~PointToPointEnergyModel() override;
+    SatelliteEnergyModel();
+    ~SatelliteEnergyModel() override;
 
 private:
     void DoDispose() override;

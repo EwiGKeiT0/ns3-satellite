@@ -1,38 +1,40 @@
-#include "point-to-point-energy-model.h"
+#include "satellite-energy-model.h"
+#include "ground-satellite-net-device.h"
 #include "ns3/log.h"
 #include "ns3/simulator.h"
 #include "ns3/packet.h"
 #include "ns3/attribute.h"
 #include "ns3/data-rate.h"
 #include "ns3/energy-source.h"
+#include "ns3/point-to-point-net-device.h"
 
 namespace ns3 {
 
-NS_LOG_COMPONENT_DEFINE("PointToPointEnergyModel");
-NS_OBJECT_ENSURE_REGISTERED(PointToPointEnergyModel);
+NS_LOG_COMPONENT_DEFINE("SatelliteEnergyModel");
+NS_OBJECT_ENSURE_REGISTERED(SatelliteEnergyModel);
 
-TypeId PointToPointEnergyModel::GetTypeId()
+TypeId SatelliteEnergyModel::GetTypeId()
 {
-    static TypeId tid = TypeId("ns3::PointToPointEnergyModel")
+    static TypeId tid = TypeId("ns3::SatelliteEnergyModel")
         .SetParent<energy::DeviceEnergyModel>()
         .SetGroupName("Satellite")
-        .AddConstructor<PointToPointEnergyModel>()
+        .AddConstructor<SatelliteEnergyModel>()
         .AddAttribute("TxCurrentA", "The current consumed by the device when transmitting.",
                       DoubleValue(0.02),
-                      MakeDoubleAccessor(&PointToPointEnergyModel::m_txCurrentA),
+                      MakeDoubleAccessor(&SatelliteEnergyModel::m_txCurrentA),
                       MakeDoubleChecker<double>())
         .AddAttribute("RxCurrentA", "The current consumed by the device when receiving.",
                       DoubleValue(0.01),
-                      MakeDoubleAccessor(&PointToPointEnergyModel::m_rxCurrentA),
+                      MakeDoubleAccessor(&SatelliteEnergyModel::m_rxCurrentA),
                       MakeDoubleChecker<double>())
         .AddAttribute("IdleCurrentA", "The current consumed by the device when idle.",
                       DoubleValue(0.001),
-                      MakeDoubleAccessor(&PointToPointEnergyModel::m_idleCurrentA),
+                      MakeDoubleAccessor(&SatelliteEnergyModel::m_idleCurrentA),
                       MakeDoubleChecker<double>());
     return tid;
 }
 
-PointToPointEnergyModel::PointToPointEnergyModel()
+SatelliteEnergyModel::SatelliteEnergyModel()
     : m_device(nullptr),
       m_source(nullptr),
       m_txCurrentA(0),
@@ -45,25 +47,39 @@ PointToPointEnergyModel::PointToPointEnergyModel()
 {
 }
 
-PointToPointEnergyModel::~PointToPointEnergyModel()
+SatelliteEnergyModel::~SatelliteEnergyModel()
 {
 }
 
-void PointToPointEnergyModel::DoDispose()
+void SatelliteEnergyModel::DoDispose()
 {
     m_device = nullptr;
     m_source = nullptr;
     energy::DeviceEnergyModel::DoDispose();
 }
 
-void PointToPointEnergyModel::DoInitialize()
+void SatelliteEnergyModel::DoInitialize()
 {
     energy::DeviceEnergyModel::DoInitialize();
-    m_device = DynamicCast<PointToPointNetDevice>(GetObject<NetDevice>());
-    NS_ASSERT(m_device != nullptr);
-
-    m_device->TraceConnectWithoutContext("MacTx", MakeCallback(&PointToPointEnergyModel::TxPacketTrace, this));
-    m_device->TraceConnectWithoutContext("MacRx", MakeCallback(&PointToPointEnergyModel::RxPacketTrace, this));
+    Ptr<NetDevice> netDevice = GetObject<NetDevice>();
+    
+    if (DynamicCast<PointToPointNetDevice>(netDevice))
+    {
+        netDevice->TraceConnectWithoutContext("MacTx", MakeCallback(&SatelliteEnergyModel::TxPacketTrace, this));
+        netDevice->TraceConnectWithoutContext("MacRx", MakeCallback(&SatelliteEnergyModel::RxPacketTrace, this));
+    }
+    else
+    {
+        if (DynamicCast<GroundSatelliteNetDevice>(netDevice))
+        {
+            netDevice->TraceConnectWithoutContext("MacTx", MakeCallback(&SatelliteEnergyModel::TxPacketTrace, this));
+            netDevice->TraceConnectWithoutContext("MacRx", MakeCallback(&SatelliteEnergyModel::RxPacketTrace, this));
+        }
+        else
+        {
+            NS_ASSERT_MSG(false, "SatelliteEnergyModel supports only PointToPointNetDevice and GroundSatelliteNetDevice.");
+        }
+    }
 
     if (m_source)
     {
@@ -71,13 +87,13 @@ void PointToPointEnergyModel::DoInitialize()
     }
 }
 
-void PointToPointEnergyModel::SetEnergySource(Ptr<energy::EnergySource> source)
+void SatelliteEnergyModel::SetEnergySource(Ptr<energy::EnergySource> source)
 {
     m_source = source;
     m_lastUpdateTime = Simulator::Now();
 }
 
-double PointToPointEnergyModel::GetTotalEnergyConsumption() const
+double SatelliteEnergyModel::GetTotalEnergyConsumption() const
 {
     Time duration = Simulator::Now() - m_lastUpdateTime;
     double energy = m_totalEnergyConsumption;
@@ -90,11 +106,11 @@ double PointToPointEnergyModel::GetTotalEnergyConsumption() const
     return energy;
 }
 
-void PointToPointEnergyModel::HandleEnergyDepletion() {}
-void PointToPointEnergyModel::HandleEnergyRecharged() {}
-void PointToPointEnergyModel::HandleEnergyChanged() {}
+void SatelliteEnergyModel::HandleEnergyDepletion() {}
+void SatelliteEnergyModel::HandleEnergyRecharged() {}
+void SatelliteEnergyModel::HandleEnergyChanged() {}
 
-double PointToPointEnergyModel::DoGetCurrentA() const
+double SatelliteEnergyModel::DoGetCurrentA() const
 {
     double current = m_idleCurrentA;
     if (m_isTransmitting)
@@ -108,7 +124,7 @@ double PointToPointEnergyModel::DoGetCurrentA() const
     return current;
 }
 
-void PointToPointEnergyModel::ChangeState(int newState)
+void SatelliteEnergyModel::ChangeState(int newState)
 {
     // This function is required to be implemented because it is a pure virtual
     // function in the base class (DeviceEnergyModel). However, our new model
@@ -116,7 +132,7 @@ void PointToPointEnergyModel::ChangeState(int newState)
     // and the UpdateEnergyState function, so this function is intentionally left empty.
 }
 
-void PointToPointEnergyModel::UpdateEnergyState(void)
+void SatelliteEnergyModel::UpdateEnergyState(void)
 {
     if (m_source)
     {
@@ -129,40 +145,42 @@ void PointToPointEnergyModel::UpdateEnergyState(void)
     }
 }
 
-void PointToPointEnergyModel::TransmissionFinished(void)
+void SatelliteEnergyModel::TransmissionFinished(void)
 {
     UpdateEnergyState();
     m_isTransmitting = false;
 }
 
-void PointToPointEnergyModel::ReceptionFinished(void)
+void SatelliteEnergyModel::ReceptionFinished(void)
 {
     UpdateEnergyState();
     m_isReceiving = false;
 }
 
-void PointToPointEnergyModel::TxPacketTrace(Ptr<const Packet> packet)
+void SatelliteEnergyModel::TxPacketTrace(Ptr<const Packet> packet)
 {
     UpdateEnergyState();
     m_isTransmitting = true;
+    NS_LOG_DEBUG("Transmitting started");
 
     DataRateValue dataRateValue;
-    m_device->GetAttribute("DataRate", dataRateValue);
+    GetObject<NetDevice>()->GetAttribute("DataRate", dataRateValue);
     DataRate dataRate = dataRateValue.Get();
     Time txTime = dataRate.CalculateBytesTxTime(packet->GetSize());
-    Simulator::Schedule(txTime, &PointToPointEnergyModel::TransmissionFinished, this);
+    Simulator::Schedule(txTime, &SatelliteEnergyModel::TransmissionFinished, this);
 }
 
-void PointToPointEnergyModel::RxPacketTrace(Ptr<const Packet> packet)
+void SatelliteEnergyModel::RxPacketTrace(Ptr<const Packet> packet)
 {
     UpdateEnergyState();
     m_isReceiving = true;
+    NS_LOG_DEBUG("Receiving started");
 
     DataRateValue dataRateValue;
-    m_device->GetAttribute("DataRate", dataRateValue);
+    GetObject<NetDevice>()->GetAttribute("DataRate", dataRateValue);
     DataRate dataRate = dataRateValue.Get();
     Time rxTime = dataRate.CalculateBytesTxTime(packet->GetSize());
-    Simulator::Schedule(rxTime, &PointToPointEnergyModel::ReceptionFinished, this);
+    Simulator::Schedule(rxTime, &SatelliteEnergyModel::ReceptionFinished, this);
 }
 
 } // namespace ns3
