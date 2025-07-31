@@ -36,8 +36,24 @@ public:
      */
     void SetOrbitalPlanes(const std::vector<NodeContainer>& orbitalPlanes);
 
+    /**
+     * @brief Populates the IP-to-Node mapping in the SatelliteRoutingProtocol.
+     *
+     * This static method should be called after IP addresses are assigned to all
+     * satellite nodes. It iterates through all nodes where this routing helper
+     * has installed the SatelliteRoutingProtocol, and for each node, it maps
+     * all of its non-loopback IPv4 addresses to the corresponding node pointer.
+     * This mapping is used by the routing protocol for forwarding decisions.
+     */
+    static void AddIpToNodeMapping();
+
 private:
     std::shared_ptr<const std::vector<NodeContainer>> m_orbitalPlanes;
+    /**
+     * @brief Container for all nodes where the satellite routing protocol is installed.
+     * This is populated by the Create() method.
+     */
+    static NodeContainer allNodes;
 };
 
 } // namespace ns3

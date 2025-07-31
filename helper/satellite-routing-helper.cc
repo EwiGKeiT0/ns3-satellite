@@ -8,6 +8,8 @@ namespace ns3 {
 
 NS_LOG_COMPONENT_DEFINE("SatelliteRoutingHelper");
 
+NodeContainer SatelliteRoutingHelper::allNodes;
+
 SatelliteRoutingHelper::SatelliteRoutingHelper()
 {
 }
@@ -27,6 +29,8 @@ SatelliteRoutingHelper::Copy() const
 Ptr<Ipv4RoutingProtocol>
 SatelliteRoutingHelper::Create(Ptr<Node> node) const
 {
+    allNodes.Add(node);
+
     // Check if a routing protocol has already been aggregated
     Ptr<Ipv4RoutingProtocol> existingRouting = node->GetObject<Ipv4RoutingProtocol>();
     if (existingRouting)
@@ -65,6 +69,13 @@ void
 SatelliteRoutingHelper::SetOrbitalPlanes(const std::vector<NodeContainer>& orbitalPlanes)
 {
     m_orbitalPlanes = std::make_shared<const std::vector<NodeContainer>>(orbitalPlanes);
+}
+
+void
+SatelliteRoutingHelper::AddIpToNodeMapping()
+{
+    SatelliteRoutingProtocol::ClearIpToNodeMapping();
+    SatelliteRoutingProtocol::AddIpToNodeMapping(allNodes);
 }
 
 } // namespace ns3 
