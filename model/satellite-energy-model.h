@@ -1,5 +1,5 @@
-#ifndef POINT_TO_POINT_ENERGY_MODEL_H
-#define POINT_TO_POINT_ENERGY_MODEL_H
+#ifndef SATELLITE_ENERGY_MODEL_H
+#define SATELLITE_ENERGY_MODEL_H
 
 #include "ns3/device-energy-model.h"
 #include "ns3/point-to-point-net-device.h"
@@ -51,4 +51,4 @@ private:
 
 } // namespace ns3
 
-#endif /* POINT_TO_POINT_ENERGY_MODEL_H */
+#endif /* SATELLITE_ENERGY_MODEL_H */

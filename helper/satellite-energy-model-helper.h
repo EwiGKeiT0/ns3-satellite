@@ -1,5 +1,5 @@
-#ifndef POINT_TO_POINT_ENERGY_MODEL_HELPER_H
-#define POINT_TO_POINT_ENERGY_MODEL_HELPER_H
+#ifndef SATELLITE_ENERGY_MODEL_HELPER_H
+#define SATELLITE_ENERGY_MODEL_HELPER_H
 
 #include "ns3/object-factory.h"
 #include "ns3/net-device-container.h"
@@ -20,4 +20,4 @@ private:
 
 } // namespace ns3
 
-#endif 
+#endif /* SATELLITE_ENERGY_MODEL_HELPER_H */

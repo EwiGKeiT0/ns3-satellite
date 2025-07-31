@@ -20,6 +20,8 @@ SatelliteHelper::CreateSatellites(uint32_t satsPerPlane,
                                   double inclination,
                                   double raan)
 {
+    NS_ASSERT_MSG(satsPerPlane > 2, "Number of satellites per plane must be greater than 2.");
+    
     NodeContainer satellites;
     satellites.Create(satsPerPlane);
 
