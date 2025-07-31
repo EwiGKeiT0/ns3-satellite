@@ -10,12 +10,12 @@ namespace ns3 {
 class SatelliteEnergyModelHelper
 {
 public:
-  SatelliteEnergyModelHelper();
-  void Set(std::string name, const AttributeValue &value);
-  void Install(const NetDeviceContainer &devices, const energy::EnergySourceContainer &sources) const;
+	SatelliteEnergyModelHelper();
+	void Set(std::string name, const AttributeValue &value);
+	void Install(const NetDeviceContainer &devices, const energy::EnergySourceContainer &sources) const;
 
 private:
-  ObjectFactory m_factory;
+	ObjectFactory m_factory;
 };
 
 } // namespace ns3
