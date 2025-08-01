@@ -71,38 +71,47 @@ InterSatelliteLinkHelper::Install(const std::vector<NodeContainer>& orbitalPlane
         return devices;
     };
 
-    // 1. Create intra-plane (ring) links
-    for (const auto& plane : orbitalPlanes)
-    {
-        for (uint32_t i = 0; i < plane.GetN(); ++i)
-        {
-            Ptr<Node> nodeA = plane.Get(i);
-            Ptr<Node> nodeB = plane.Get((i + 1) % plane.GetN());
-            allDevices.Add(createLink(nodeA, nodeB));
-        }
-    }
+    // // 1. Create intra-plane (ring) links
+    // for (const auto& plane : orbitalPlanes)
+    // {
+    //     for (uint32_t i = 0; i < plane.GetN(); ++i)
+    //     {
+    //         Ptr<Node> nodeA = plane.Get(i);
+    //         Ptr<Node> nodeB = plane.Get((i + 1) % plane.GetN());
+    //         allDevices.Add(createLink(nodeA, nodeB));
+    //     }
+    // }
 
-    // 2. Create all possible inter-plane links
+    // // 2. Create all possible inter-plane links
+    // for (size_t i = 0; i < orbitalPlanes.size(); ++i)
+    // {
+    //     for (size_t j = i + 1; j < orbitalPlanes.size(); ++j)
+    //     {
+    //         const auto& planeA = orbitalPlanes[i];
+    //         const auto& planeB = orbitalPlanes[j];
+    //         for (uint32_t n_a = 0; n_a < planeA.GetN(); ++n_a)
+    //         {
+    //             for (uint32_t n_b = 0; n_b < planeB.GetN(); ++n_b)
+    //             {
+    //                 allDevices.Add(createLink(planeA.Get(n_a), planeB.Get(n_b)));
+    //             }
+    //         }
+    //     }
+    // }
+
     for (size_t i = 0; i < orbitalPlanes.size(); ++i)
     {
-        for (size_t j = i + 1; j < orbitalPlanes.size(); ++j)
+        const auto& planeA = orbitalPlanes[i];
+        const auto& planeB = orbitalPlanes[(i + 1) % orbitalPlanes.size()];
+        for (uint32_t j = 0; j < planeA.GetN(); ++j)
         {
-            const auto& planeA = orbitalPlanes[i];
-            const auto& planeB = orbitalPlanes[j];
-            for (uint32_t n_a = 0; n_a < planeA.GetN(); ++n_a)
-            {
-                for (uint32_t n_b = 0; n_b < planeB.GetN(); ++n_b)
-                {
-                    allDevices.Add(createLink(planeA.Get(n_a), planeB.Get(n_b)));
-                }
-            }
+            Ptr<Node> nodeA = planeA.Get(j);
+            Ptr<Node> nodeB = planeA.Get((j + 1) % planeA.GetN());
+            allDevices.Add(createLink(nodeA, nodeB));
+            Ptr<Node> nodeC = planeB.Get(j);
+            allDevices.Add(createLink(nodeA, nodeC));
         }
     }
-
-    // BasicEnergySourceHelper basicEnergySourceHelper;
-    // basicEnergySourceHelper.Set("BasicEnergySourceInitialEnergyJ", DoubleValue(100));
-    // for (const auto &plane : orbitalPlanes)
-    //     basicEnergySourceHelper.Install(plane);
 
     return allDevices;
 }

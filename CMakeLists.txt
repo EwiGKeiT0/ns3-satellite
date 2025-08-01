@@ -5,6 +5,7 @@ build_lib(
     helper/inter-satellite-link-helper.cc
     helper/ground-satellite-link-helper.cc
     helper/satellite-routing-helper.cc
+    helper/satellite-sp-routing-helper.cc
     helper/satellite-energy-model-helper.cc
     model/satellite-circular-mobility-model.cc
     model/satellite-position-allocator.cc
@@ -14,12 +15,14 @@ build_lib(
     model/ground-satellite-phy.cc
     model/ground-satellite-mac-header.cc
     model/satellite-routing-protocol.cc
+    model/satellite-sp-routing-protocol.cc
     model/satellite-energy-model.cc
   HEADER_FILES
     helper/satellite-helper.h
     helper/inter-satellite-link-helper.h
     helper/ground-satellite-link-helper.h
     helper/satellite-routing-helper.h
+    helper/satellite-sp-routing-helper.h
     helper/satellite-energy-model-helper.h
     model/satellite-circular-mobility-model.h
     model/satellite-position-allocator.h
@@ -29,6 +32,7 @@ build_lib(
     model/ground-satellite-phy.h
     model/ground-satellite-mac-header.h
     model/satellite-routing-protocol.h
+    model/satellite-sp-routing-protocol.h
     model/satellite-energy-model.h
   LIBRARIES_TO_LINK
     ${libcore}
@@ -40,4 +44,4 @@ build_lib(
     ${libflow-monitor}
     ${libapplications}
     ${libnetanim}
-) 
+)

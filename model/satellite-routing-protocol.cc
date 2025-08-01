@@ -152,103 +152,122 @@ SatelliteRoutingProtocol::UpdateActiveNeighbors()
     NS_LOG_DEBUG("Updating active neighbors for node " << m_ipv4->GetObject<Node>()->GetId());
     
     m_activeNeighbors.clear();
-    
-    Ptr<Node> thisNode = m_ipv4->GetObject<Node>();
-    int currentPlaneIdx = -1;
-    int currentNodeIdx = -1;
 
-    // Find our own position in the topology definition
-    for (size_t i = 0; i < m_orbitalPlanes->size(); ++i) {
-        for (size_t j = 0; j < m_orbitalPlanes->at(i).GetN(); ++j) {
-            if (m_orbitalPlanes->at(i).Get(j) == thisNode) {
-                currentPlaneIdx = i;
-                currentNodeIdx = j;
-                break;
-            }
-        }
-        if (currentPlaneIdx != -1) break;
-    }
-    if (currentPlaneIdx == -1) {
-        NS_LOG_WARN("Node " << thisNode->GetId() << " not found in orbital planes topology.");
-        m_updateTimer.Schedule(m_updateInterval);
-        return;
-    }
-
-    // --- Step 1: Discover all physically connected neighbors first ---
-    std::vector<NeighborInfo> allPhysicalNeighbors;
-    for (uint32_t i = 1; i < m_ipv4->GetNInterfaces(); ++i) {
+    for (uint32_t i = 1; i < m_ipv4->GetNInterfaces(); ++i)
+    {
         Ptr<NetDevice> localDevice = m_ipv4->GetNetDevice(i);
         Ptr<Channel> channel = localDevice->GetChannel();
-        if (channel && channel->GetNDevices() == 2) {
+        if (channel && channel->GetNDevices() == 2)
+        {
             Ptr<NetDevice> peerDevice = (channel->GetDevice(0) == localDevice) ? 
                 channel->GetDevice(1) : channel->GetDevice(0);
-            if (peerDevice) {
+            if (peerDevice)
+            {
                 Ptr<Node> peerNode = peerDevice->GetNode();
-                // Only consider other satellites as potential inter-satellite neighbors
-                if (peerNode && peerNode->GetObject<SatelliteCircularMobilityModel>()) {
-                    allPhysicalNeighbors.push_back({peerNode, localDevice});
+                if (peerNode && peerNode->GetObject<SatelliteCircularMobilityModel>())
+                {
+                    m_activeNeighbors.push_back({peerNode, localDevice});
                 }
             }
         }
     }
+    
+    // Ptr<Node> thisNode = m_ipv4->GetObject<Node>();
+    // int currentPlaneIdx = -1;
+    // int currentNodeIdx = -1;
+
+    // // Find our own position in the topology definition
+    // for (size_t i = 0; i < m_orbitalPlanes->size(); ++i) {
+    //     for (size_t j = 0; j < m_orbitalPlanes->at(i).GetN(); ++j) {
+    //         if (m_orbitalPlanes->at(i).Get(j) == thisNode) {
+    //             currentPlaneIdx = i;
+    //             currentNodeIdx = j;
+    //             break;
+    //         }
+    //     }
+    //     if (currentPlaneIdx != -1) break;
+    // }
+    // if (currentPlaneIdx == -1) {
+    //     NS_LOG_WARN("Node " << thisNode->GetId() << " not found in orbital planes topology.");
+    //     m_updateTimer.Schedule(m_updateInterval);
+    //     return;
+    // }
+
+    // // --- Step 1: Discover all physically connected neighbors first ---
+    // std::vector<NeighborInfo> allPhysicalNeighbors;
+    // for (uint32_t i = 1; i < m_ipv4->GetNInterfaces(); ++i) {
+    //     Ptr<NetDevice> localDevice = m_ipv4->GetNetDevice(i);
+    //     Ptr<Channel> channel = localDevice->GetChannel();
+    //     if (channel && channel->GetNDevices() == 2) {
+    //         Ptr<NetDevice> peerDevice = (channel->GetDevice(0) == localDevice) ? 
+    //             channel->GetDevice(1) : channel->GetDevice(0);
+    //         if (peerDevice) {
+    //             Ptr<Node> peerNode = peerDevice->GetNode();
+    //             // Only consider other satellites as potential inter-satellite neighbors
+    //             if (peerNode && peerNode->GetObject<SatelliteCircularMobilityModel>()) {
+    //                 allPhysicalNeighbors.push_back({peerNode, localDevice});
+    //             }
+    //         }
+    //     }
+    // }
 
     // --- Step 2: Apply routing logic based on the discovered neighbors ---
 
     // 2. Find best inter-plane neighbors using geometry
-    const auto& myPlane = m_orbitalPlanes->at(currentPlaneIdx);
-    Ptr<Node> pre = myPlane.Get((currentNodeIdx + myPlane.GetN() - 1) % myPlane.GetN());
-    Ptr<Node> nxt = myPlane.Get((currentNodeIdx + 1) % myPlane.GetN());
-    Ptr<MobilityModel> preMobility = pre->GetObject<MobilityModel>();
-    Ptr<MobilityModel> nxtMobility = nxt->GetObject<MobilityModel>();
-    Ptr<MobilityModel> thisMobility = thisNode->GetObject<MobilityModel>();
-    Vector thisPos = thisMobility->GetPosition();
-    Vector prePos = preMobility->GetPosition();
-    Vector nxtPos = nxtMobility->GetPosition();
+    // const auto& myPlane = m_orbitalPlanes->at(currentPlaneIdx);
+    // Ptr<Node> pre = myPlane.Get((currentNodeIdx + myPlane.GetN() - 1) % myPlane.GetN());
+    // Ptr<Node> nxt = myPlane.Get((currentNodeIdx + 1) % myPlane.GetN());
+    // Ptr<MobilityModel> preMobility = pre->GetObject<MobilityModel>();
+    // Ptr<MobilityModel> nxtMobility = nxt->GetObject<MobilityModel>();
+    // Ptr<MobilityModel> thisMobility = thisNode->GetObject<MobilityModel>();
+    // Vector thisPos = thisMobility->GetPosition();
+    // Vector prePos = preMobility->GetPosition();
+    // Vector nxtPos = nxtMobility->GetPosition();
 
-    // Define the plane using a normal vector
-    Vector v1 = prePos - thisPos;
-    Vector v2 = nxtPos - thisPos;
-    Vector normal = CrossProduct(v1, v2);
+    // // Define the plane using a normal vector
+    // Vector v1 = prePos - thisPos;
+    // Vector v2 = nxtPos - thisPos;
+    // Vector normal = CrossProduct(v1, v2);
 
-    NeighborInfo bestAboveNeighbor;
-    double minAboveDist = -1.0;
+    // NeighborInfo bestAboveNeighbor;
+    // double minAboveDist = -1.0;
 
-    NeighborInfo bestBelowNeighbor;
-    double minBelowDist = -1.0;
+    // NeighborInfo bestBelowNeighbor;
+    // double minBelowDist = -1.0;
 
-    for (const auto& neighbor : allPhysicalNeighbors)
-        if (neighbor.neighborNode == pre || neighbor.neighborNode == nxt) {
-            m_activeNeighbors.push_back(neighbor);
-        } else {
-            Ptr<MobilityModel> candMobility = neighbor.neighborNode->GetObject<MobilityModel>();
+    // for (const auto& neighbor : allPhysicalNeighbors)
+    //     if (neighbor.neighborNode == pre || neighbor.neighborNode == nxt) {
+    //         m_activeNeighbors.push_back(neighbor);
+    //     } else {
+    //         Ptr<MobilityModel> candMobility = neighbor.neighborNode->GetObject<MobilityModel>();
 
-            Vector candPos = candMobility->GetPosition();
-            Vector vCand = candPos - thisPos;
-            double dotProduct = normal * vCand;
-            double dist = thisMobility->GetDistanceFrom(candMobility);
+    //         Vector candPos = candMobility->GetPosition();
+    //         Vector vCand = candPos - thisPos;
+    //         double dotProduct = normal * vCand;
+    //         double dist = thisMobility->GetDistanceFrom(candMobility);
 
-            if (dotProduct > 0) { // Above the plane
-                if (minAboveDist < 0 || dist < minAboveDist) {
-                    minAboveDist = dist;
-                    bestAboveNeighbor = neighbor;
-                }
-            } else if (dotProduct < 0) { // Below the plane
-                if (minBelowDist < 0 || dist < minBelowDist) {
-                    minBelowDist = dist;
-                    bestBelowNeighbor = neighbor;
-                }
-            }
-        }
-    if (bestAboveNeighbor.neighborNode) {
-        m_activeNeighbors.push_back(bestAboveNeighbor);
-    }
+    //         if (dotProduct > 0) { // Above the plane
+    //             if (minAboveDist < 0 || dist < minAboveDist) {
+    //                 minAboveDist = dist;
+    //                 bestAboveNeighbor = neighbor;
+    //             }
+    //         } else if (dotProduct < 0) { // Below the plane
+    //             if (minBelowDist < 0 || dist < minBelowDist) {
+    //                 minBelowDist = dist;
+    //                 bestBelowNeighbor = neighbor;
+    //             }
+    //         }
+    //     }
+    // if (bestAboveNeighbor.neighborNode) {
+    //     m_activeNeighbors.push_back(bestAboveNeighbor);
+    // }
 
-    if (bestBelowNeighbor.neighborNode) {
-        m_activeNeighbors.push_back(bestBelowNeighbor);
-    }
+    // if (bestBelowNeighbor.neighborNode) {
+    //     m_activeNeighbors.push_back(bestBelowNeighbor);
+    // }
 
     // Reschedule the timer for the next update.
-    m_updateTimer.Schedule(m_updateInterval);
+    // m_updateTimer.Schedule(m_updateInterval);
 }
 
 bool
@@ -367,7 +386,8 @@ SatelliteRoutingProtocol::RouteOutput(Ptr<Packet> p, const Ipv4Header &header, P
         return nullptr; 
     }
 
-    double minDistanceToDest = thisNode->GetObject<MobilityModel>()->GetDistanceFrom(destMobility);
+    double minDistanceToDest = -1.0;
+    double ownDistToDest = thisNode->GetObject<MobilityModel>()->GetDistanceFrom(destMobility);
     NeighborInfo bestNextHop;
     bool bestHopFound = false;
 
@@ -375,7 +395,7 @@ SatelliteRoutingProtocol::RouteOutput(Ptr<Packet> p, const Ipv4Header &header, P
     for (const auto& neighborInfo : m_activeNeighbors) {
         Ptr<MobilityModel> neighborMobility = neighborInfo.neighborNode->GetObject<MobilityModel>();
         double dist = neighborMobility->GetDistanceFrom(destMobility);
-        if (dist < minDistanceToDest) {
+        if (!bestHopFound || dist < minDistanceToDest) {
             minDistanceToDest = dist;
             bestNextHop = neighborInfo;
             bestHopFound = true;
@@ -387,7 +407,7 @@ SatelliteRoutingProtocol::RouteOutput(Ptr<Packet> p, const Ipv4Header &header, P
         NS_LOG_INFO("  -> Destination is a Ground Station.");
         
         // If no neighbor is closer, we are the best hop. Route directly to the ground station.
-        if (!bestHopFound) {
+        if (minDistanceToDest > ownDistToDest) {
             NS_LOG_INFO("  -> This satellite is the closest hop to the ground station. Routing directly.");
             // We need to find the specific NetDevice that connects to this ground station.
             for (uint32_t i = 1; i < m_ipv4->GetNInterfaces(); ++i) {
@@ -412,11 +432,11 @@ SatelliteRoutingProtocol::RouteOutput(Ptr<Packet> p, const Ipv4Header &header, P
     } 
     // Subcase 2b: Destination is another Satellite
     else {
-        if (!bestHopFound) {
-            NS_LOG_WARN("  -> No greedy hop found for satellite destination. Cannot forward.");
-            sockerr = Socket::ERROR_NOROUTETOHOST;
-            return nullptr;
-        }
+        // if (!bestHopFound) {
+        //     NS_LOG_WARN("  -> No greedy hop found for satellite destination. Cannot forward.");
+        //     sockerr = Socket::ERROR_NOROUTETOHOST;
+        //     return nullptr;
+        // }
     }
     
     NS_LOG_INFO("  -> Best inter-satellite next hop: Node " << bestNextHop.neighborNode->GetId() 

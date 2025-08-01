@@ -15,7 +15,7 @@ SatelliteHelper::SatelliteHelper()
 }
 
 NodeContainer
-SatelliteHelper::CreateSatellites(uint32_t satsPerPlane,
+SatelliteHelper::CreateOribitalPlane(uint32_t satsPerPlane,
                                   double altitude,
                                   double inclination,
                                   double raan)
@@ -49,6 +49,22 @@ SatelliteHelper::CreateSatellites(uint32_t satsPerPlane,
     ++m_planeIndex;
 
     return satellites;
+}
+
+std::vector<NodeContainer>
+SatelliteHelper::CreateShell(double altitude,
+                             double inclination,
+                             uint32_t planes,
+                             uint32_t satsPerPlane)
+{
+    std::vector<NodeContainer> shell;
+    for (uint32_t i = 0; i < planes; ++i)
+    {
+        double raan = i * (360.0 / planes);
+        NodeContainer plane = CreateOribitalPlane(satsPerPlane, altitude, inclination, raan);
+        shell.push_back(plane);
+    }
+    return shell;
 }
 
 NodeContainer
