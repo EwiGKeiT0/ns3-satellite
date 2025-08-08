@@ -91,7 +91,7 @@ void
 SatelliteSpRoutingProtocol::AddIpToNodeMapping()
 {
     ClearIpToNodeMapping();
-    for(uint32_t i = 0; i < m_allSatellites.GetN(); ++i)
+    for (uint32_t i = 0; i < m_allSatellites.GetN(); ++i)
     {
         Ptr<Node> node = m_allSatellites.Get(i);
         Ptr<Ipv4> ipv4Node = node->GetObject<Ipv4>();
@@ -124,23 +124,29 @@ SatelliteSpRoutingProtocol::InitializeTopology()
 {
     NS_LOG_INFO("Building global satellite topology once.");
     
-    for(uint32_t i=0; i < m_allSatellites.GetN(); ++i) {
+    for (uint32_t i=0; i < m_allSatellites.GetN(); ++i)
+    {
         m_nodeToIndex[m_allSatellites.Get(i)] = i;
     }
 
     m_adj.resize(m_allSatellites.GetN());
-    for(uint32_t i=0; i < m_allSatellites.GetN(); ++i) {
+    for (uint32_t i=0; i < m_allSatellites.GetN(); ++i)
+    {
         Ptr<Node> node = m_allSatellites.Get(i);
-        for(uint32_t j=0; j < node->GetNDevices(); ++j) {
+        for(uint32_t j=0; j < node->GetNDevices(); ++j)
+        {
             Ptr<NetDevice> dev = node->GetDevice(j);
-            if (DynamicCast<LoopbackNetDevice>(dev)) {
+            if (DynamicCast<LoopbackNetDevice>(dev))
+            {
                 continue;
             }
             Ptr<Channel> channel = dev->GetChannel();
-            if(channel && channel->GetNDevices() == 2) {
+            if(channel && channel->GetNDevices() == 2)
+            {
                 Ptr<NetDevice> peerDev = (channel->GetDevice(0) == dev) ? channel->GetDevice(1) : channel->GetDevice(0);
                 Ptr<Node> peerNode = peerDev->GetNode();
-                if(m_nodeToIndex.count(peerNode)) {
+                if(m_nodeToIndex.count(peerNode))
+                {
                     m_adj[i].push_back(m_nodeToIndex[peerNode]);
                 }
             }
@@ -154,7 +160,8 @@ SatelliteSpRoutingProtocol::PrintRoutingTable(Ptr<OutputStreamWrapper> stream, T
     *stream->GetStream() << "SatelliteSpRoutingProtocol: Routing table for Node " << m_ipv4->GetObject<Node>()->GetId() 
                        << " at time " << Simulator::Now().As(unit) << std::endl;
     *stream->GetStream() << "  Destination Node ID\tNext Hop Node ID\tInterface" << std::endl;
-    for (const auto& entry : m_routingTable) {
+    for (const auto& entry : m_routingTable)
+    {
         Ptr<Node> destNode = entry.first;
         Ptr<Node> nextHop = entry.second.nextHopNode;
         uint32_t iface = entry.second.interface;
@@ -183,12 +190,15 @@ SatelliteSpRoutingProtocol::UpdateRoutes()
 
 uint32_t SatelliteSpRoutingProtocol::GetInterfaceToPeer(Ptr<Node> peer) const
 {
-    for (uint32_t i = 1; i < m_ipv4->GetNInterfaces(); ++i) {
+    for (uint32_t i = 1; i < m_ipv4->GetNInterfaces(); ++i)
+    {
         Ptr<NetDevice> dev = m_ipv4->GetNetDevice(i);
         Ptr<Channel> ch = dev->GetChannel();
-        if (ch && ch->GetNDevices() == 2) {
+        if (ch && ch->GetNDevices() == 2)
+        {
             Ptr<NetDevice> peerDev = (ch->GetDevice(0) == dev) ? ch->GetDevice(1) : ch->GetDevice(0);
-            if (peerDev && peerDev->GetNode() == peer) {
+            if (peerDev && peerDev->GetNode() == peer)
+            {
                 return m_ipv4->GetInterfaceForDevice(dev);
             }
         }
@@ -200,7 +210,8 @@ void
 SatelliteSpRoutingProtocol::ComputeRoutes()
 {
     Ptr<Node> thisNode = m_ipv4->GetObject<Node>();
-    if (m_nodeToIndex.find(thisNode) == m_nodeToIndex.end()) {
+    if (m_nodeToIndex.find(thisNode) == m_nodeToIndex.end())
+    {
         return; 
     }
     uint32_t numNodes = m_allSatellites.GetN();
@@ -214,7 +225,8 @@ SatelliteSpRoutingProtocol::ComputeRoutes()
     std::priority_queue<PQElement, std::vector<PQElement>, std::greater<PQElement>> pq;
     pq.push({0.0, srcIndex});
 
-    while(!pq.empty()) {
+    while (!pq.empty())
+    {
         double d = pq.top().first;
         uint32_t u_idx = pq.top().second;
         pq.pop();
@@ -222,15 +234,19 @@ SatelliteSpRoutingProtocol::ComputeRoutes()
         if (d > dist[u_idx]) continue;
 
         Ptr<Node> u_node = m_allSatellites.Get(u_idx);
-        for(const auto& v_idx : m_adj[u_idx]) {
+        for(const auto& v_idx : m_adj[u_idx])
+        {
             Ptr<Node> v_node = m_allSatellites.Get(v_idx);
             double weight = u_node->GetObject<MobilityModel>()->GetDistanceFrom(v_node->GetObject<MobilityModel>());
             
-            if(dist[u_idx] + weight < dist[v_idx]) {
+            if(dist[u_idx] + weight < dist[v_idx])
+            {
                 dist[v_idx] = dist[u_idx] + weight;
-                if (u_idx == srcIndex) {
+                if (u_idx == srcIndex)
+                {
                     from[v_idx] = v_idx;
-                } else {
+                } else
+                {
                     from[v_idx] = from[u_idx];
                 }
                 pq.push({dist[v_idx], v_idx});
@@ -238,7 +254,8 @@ SatelliteSpRoutingProtocol::ComputeRoutes()
         }
     }
 
-    for(uint32_t i=0; i < numNodes; ++i) {
+    for(uint32_t i=0; i < numNodes; ++i)
+    {
         if(i == srcIndex || from[i] == -1) continue;
 
         Ptr<Node> destNode = m_allSatellites.Get(i);
@@ -248,7 +265,8 @@ SatelliteSpRoutingProtocol::ComputeRoutes()
         Ptr<Node> nextHopNode = m_allSatellites.Get(nextHopIdx);
         uint32_t iface = GetInterfaceToPeer(nextHopNode);
 
-        if (iface != (uint32_t)-1) {
+        if (iface != (uint32_t)-1)
+        {
             m_routingTable[destNode] = {nextHopNode, iface};
         }
     }
@@ -274,14 +292,12 @@ SatelliteSpRoutingProtocol::RouteInput(Ptr<const Packet> p, const Ipv4Header &he
 
     if (route)
     {
-        NS_LOG_INFO("  -> Found a route. Forwarding to gateway " << route->GetGateway() 
-                    << " via interface " << route->GetOutputDevice()->GetIfIndex());
         ucb(route, packet, header);
         return true;
     }
     else
     {
-        NS_LOG_WARN("  -> No route found. Dropping packet.");
+        NS_LOG_WARN("  -> Dropping packet.");
         ecb(p, header, Socket::ERROR_NOROUTETOHOST);
         return false;
     }
@@ -296,19 +312,24 @@ SatelliteSpRoutingProtocol::RouteOutput(Ptr<Packet> p, const Ipv4Header &header,
     Ipv4Address destAddr = header.GetDestination();
     NS_LOG_INFO("RouteOutput on Node " << thisNode->GetId() << " to " << destAddr);
 
-    if (thisNode->GetObject<ConstantPositionMobilityModel>()) {
+    if (thisNode->GetObject<ConstantPositionMobilityModel>())
+    {
         NS_LOG_INFO("  -> Current node is a Ground Station. Finding closest satellite.");
         double minDistance = -1.0;
         Ptr<NetDevice> bestDevice = nullptr;
         
-        for (uint32_t i = 1; i < m_ipv4->GetNInterfaces(); ++i) {
+        for (uint32_t i = 1; i < m_ipv4->GetNInterfaces(); ++i)
+        {
             Ptr<NetDevice> dev = m_ipv4->GetNetDevice(i);
             Ptr<Channel> ch = dev->GetChannel();
-            if (ch && ch->GetNDevices() == 2) {
+            if (ch && ch->GetNDevices() == 2)
+            {
                 Ptr<NetDevice> peerDev = (ch->GetDevice(0) == dev) ? ch->GetDevice(1) : ch->GetDevice(0);
-                if (peerDev && peerDev->GetNode()->GetObject<SatelliteCircularMobilityModel>()) {
+                if (peerDev && peerDev->GetNode()->GetObject<SatelliteCircularMobilityModel>())
+                {
                     double dist = thisNode->GetObject<MobilityModel>()->GetDistanceFrom(peerDev->GetNode()->GetObject<MobilityModel>());
-                    if (minDistance < 0 || dist < minDistance) {
+                    if (minDistance < 0 || dist < minDistance)
+                    {
                         minDistance = dist;
                         bestDevice = dev;
                     }
@@ -316,7 +337,8 @@ SatelliteSpRoutingProtocol::RouteOutput(Ptr<Packet> p, const Ipv4Header &header,
             }
         }
 
-        if (bestDevice) {
+        if (bestDevice)
+        {
             Ptr<Channel> ch = bestDevice->GetChannel();
             Ptr<NetDevice> peerDev = (ch->GetDevice(0) == bestDevice) ? ch->GetDevice(1) : ch->GetDevice(0);
             Ptr<Ipv4> peerIpv4 = peerDev->GetNode()->GetObject<Ipv4>();
@@ -337,7 +359,8 @@ SatelliteSpRoutingProtocol::RouteOutput(Ptr<Packet> p, const Ipv4Header &header,
     
     // IP to Node lookup
     auto it_map = m_ipToNodeMap.find(destAddr);
-    if (it_map == m_ipToNodeMap.end()) {
+    if (it_map == m_ipToNodeMap.end())
+    {
         NS_LOG_WARN("  -> Destination " << destAddr << " not found in IP-to-Node map.");
         sockerr = Socket::ERROR_NOROUTETOHOST;
         return nullptr;
@@ -345,7 +368,8 @@ SatelliteSpRoutingProtocol::RouteOutput(Ptr<Packet> p, const Ipv4Header &header,
     Ptr<Node> destNode = it_map->second;
 
     auto it = m_routingTable.find(destNode);
-    if (it != m_routingTable.end()) {
+    if (it != m_routingTable.end())
+    {
         const RouteEntry& entry = it->second;
         Ptr<NetDevice> outDev = m_ipv4->GetNetDevice(entry.interface);
         
@@ -361,6 +385,10 @@ SatelliteSpRoutingProtocol::RouteOutput(Ptr<Packet> p, const Ipv4Header &header,
         
         route->SetGateway(gateway);
         route->SetOutputDevice(outDev);
+
+        NS_LOG_INFO("  -> Found a route. Forwarding to gateway " << route->GetGateway() 
+                    << " via interface " << route->GetOutputDevice()->GetIfIndex());
+
         return route;
     }
 
