@@ -145,7 +145,13 @@ SatelliteSpRoutingProtocol::InitializeTopology()
             {
                 Ptr<NetDevice> peerDev = (channel->GetDevice(0) == dev) ? channel->GetDevice(1) : channel->GetDevice(0);
                 Ptr<Node> peerNode = peerDev->GetNode();
-                if(m_nodeToIndex.count(peerNode))
+                
+                // Only add inter-satellite links (ISL) to the shortest path graph
+                // Check if both nodes are satellites (have SatelliteCircularMobilityModel)
+                bool currentIsSatellite = node->GetObject<SatelliteCircularMobilityModel>() != nullptr;
+                bool peerIsSatellite = peerNode->GetObject<SatelliteCircularMobilityModel>() != nullptr;
+                
+                if(m_nodeToIndex.count(peerNode) && currentIsSatellite && peerIsSatellite)
                 {
                     m_adj[i].push_back(m_nodeToIndex[peerNode]);
                 }
@@ -366,6 +372,103 @@ SatelliteSpRoutingProtocol::RouteOutput(Ptr<Packet> p, const Ipv4Header &header,
         return nullptr;
     }
     Ptr<Node> destNode = it_map->second;
+
+    // Check if destination is a ground station
+    if (destNode->GetObject<ConstantPositionMobilityModel>())
+    {
+        NS_LOG_INFO("  -> Destination is a ground station. Finding closest satellite to destination.");
+        
+        // Find the satellite closest to the destination ground station
+        double minDistance = -1.0;
+        Ptr<Node> closestSatellite = nullptr;
+        
+        for (uint32_t i = 0; i < m_allSatellites.GetN(); ++i)
+        {
+            Ptr<Node> satellite = m_allSatellites.Get(i);
+            if (satellite->GetObject<SatelliteCircularMobilityModel>())
+            {
+                double dist = destNode->GetObject<MobilityModel>()->GetDistanceFrom(satellite->GetObject<MobilityModel>());
+                if (minDistance < 0 || dist < minDistance)
+                {
+                    minDistance = dist;
+                    closestSatellite = satellite;
+                }
+            }
+        }
+        
+        if (!closestSatellite)
+        {
+            NS_LOG_WARN("  -> No satellites found to reach ground station.");
+            sockerr = Socket::ERROR_NOROUTETOHOST;
+            return nullptr;
+        }
+        
+        // If the closest satellite is the current node, forward directly to ground station
+        if (closestSatellite == thisNode)
+        {
+            NS_LOG_INFO("  -> Current satellite is closest to destination ground station. Forwarding directly.");
+            
+            // Find the interface connected to the destination ground station
+            for (uint32_t i = 1; i < m_ipv4->GetNInterfaces(); ++i)
+            {
+                Ptr<NetDevice> dev = m_ipv4->GetNetDevice(i);
+                Ptr<Channel> ch = dev->GetChannel();
+                if (ch && ch->GetNDevices() == 2)
+                {
+                    Ptr<NetDevice> peerDev = (ch->GetDevice(0) == dev) ? ch->GetDevice(1) : ch->GetDevice(0);
+                    if (peerDev && peerDev->GetNode() == destNode)
+                    {
+                        Ptr<Ipv4Route> route = Create<Ipv4Route>();
+                        route->SetDestination(destAddr);
+                        route->SetSource(m_ipv4->GetAddress(i, 0).GetLocal());
+                        route->SetGateway(destAddr); // Direct connection
+                        route->SetOutputDevice(dev);
+                        
+                        NS_LOG_INFO("  -> Direct route found to ground station via interface " << i);
+                        return route;
+                    }
+                }
+            }
+            
+            NS_LOG_WARN("  -> Current satellite should be closest but no direct link found to ground station.");
+            sockerr = Socket::ERROR_NOROUTETOHOST;
+            return nullptr;
+        }
+        else
+        {
+            NS_LOG_INFO("  -> Routing to closest satellite " << closestSatellite->GetId() << " to reach ground station.");
+            
+            // Route to the closest satellite using the routing table
+            auto it_closest = m_routingTable.find(closestSatellite);
+            if (it_closest != m_routingTable.end())
+            {
+                const RouteEntry& entry = it_closest->second;
+                Ptr<NetDevice> outDev = m_ipv4->GetNetDevice(entry.interface);
+                
+                Ptr<Ipv4Route> route = Create<Ipv4Route>();
+                route->SetDestination(destAddr); // Keep original destination
+                route->SetSource(m_ipv4->GetAddress(entry.interface, 0).GetLocal());
+                
+                Ptr<Ipv4> peerIpv4 = entry.nextHopNode->GetObject<Ipv4>();
+                Ptr<Channel> ch = outDev->GetChannel();
+                Ptr<NetDevice> peerDev = (ch->GetDevice(0) == outDev) ? ch->GetDevice(1) : ch->GetDevice(0);
+                int32_t peerIfIndex = peerIpv4->GetInterfaceForDevice(peerDev);
+                Ipv4Address gateway = peerIpv4->GetAddress(peerIfIndex, 0).GetLocal();
+                
+                route->SetGateway(gateway);
+                route->SetOutputDevice(outDev);
+                
+                NS_LOG_INFO("  -> Route to closest satellite found. Gateway: " << gateway);
+                return route;
+            }
+            else
+            {
+                NS_LOG_WARN("  -> No route found to closest satellite " << closestSatellite->GetId());
+                sockerr = Socket::ERROR_NOROUTETOHOST;
+                return nullptr;
+            }
+        }
+    }
 
     auto it = m_routingTable.find(destNode);
     if (it != m_routingTable.end())
