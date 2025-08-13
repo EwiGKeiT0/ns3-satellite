@@ -60,6 +60,7 @@ public:
     void Receive(Ptr<Packet> packet, const Address& sender);
     void SetQueue(Ptr<Queue<Packet>> queue);
     void TxMachine(void);
+    void TxComplete(void);
 
     TracedCallback<Ptr<const Packet>> m_macTxTrace;
     TracedCallback<Ptr<const Packet>> m_macRxTrace;

@@ -92,7 +92,7 @@ GroundSatellitePhy::StartTx(Ptr<Packet> packet)
 
     Time txTime = Seconds(static_cast<double>(packet->GetSize() * 8) / m_dataRate.GetBitRate());
     auto* dev = dynamic_cast<GroundSatelliteNetDevice*>(PeekPointer(m_device));
-    Simulator::Schedule(txTime, &GroundSatelliteNetDevice::TxMachine, dev);
+    Simulator::Schedule(txTime, &GroundSatelliteNetDevice::TxComplete, dev);
 }
 
 void

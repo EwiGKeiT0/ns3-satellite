@@ -187,9 +187,11 @@ SatelliteSpRoutingProtocol::NotifyRemoveAddress(uint32_t i, Ipv4InterfaceAddress
 void
 SatelliteSpRoutingProtocol::UpdateRoutes()
 {  
-    NS_LOG_DEBUG("Updating routes for node " << m_ipv4->GetObject<Node>()->GetId());
+    Ptr<Node> thisNode = m_ipv4->GetObject<Node>();
+    NS_LOG_DEBUG("Updating routes for node " << thisNode->GetId() << " at time " << Simulator::Now().GetSeconds() << "s");
     m_routingTable.clear();
     ComputeRoutes();
+    NS_LOG_DEBUG("Node " << thisNode->GetId() << " computed " << m_routingTable.size() << " routes");
     
     m_updateTimer.Schedule(m_updateInterval);
 }
@@ -283,6 +285,9 @@ SatelliteSpRoutingProtocol::RouteInput(Ptr<const Packet> p, const Ipv4Header &he
                                      const UnicastForwardCallback& ucb, const MulticastForwardCallback& mcb,
                                      const LocalDeliverCallback& lcb, const ErrorCallback& ecb)
 {
+    Ptr<Node> thisNode = m_ipv4->GetObject<Node>();
+    NS_LOG_INFO("RouteInput on Node " << thisNode->GetId() << ": Packet from " << header.GetSource() << " to " << header.GetDestination());
+    
     if (m_ipv4->GetInterfaceForAddress(header.GetDestination()) >= 0)
     {
         NS_LOG_INFO("RouteInput: Packet for " << header.GetDestination() << " is for me. Delivering locally.");
@@ -298,12 +303,13 @@ SatelliteSpRoutingProtocol::RouteInput(Ptr<const Packet> p, const Ipv4Header &he
 
     if (route)
     {
+        NS_LOG_INFO("  -> Forward successful via gateway " << route->GetGateway());
         ucb(route, packet, header);
         return true;
     }
     else
     {
-        NS_LOG_WARN("  -> Dropping packet.");
+        NS_LOG_WARN("  -> Dropping packet. Socket error: " << sockerr);
         ecb(p, header, Socket::ERROR_NOROUTETOHOST);
         return false;
     }
@@ -312,18 +318,24 @@ SatelliteSpRoutingProtocol::RouteInput(Ptr<const Packet> p, const Ipv4Header &he
 Ptr<Ipv4Route>
 SatelliteSpRoutingProtocol::RouteOutput(Ptr<Packet> p, const Ipv4Header &header, Ptr<NetDevice> oif, Socket::SocketErrno &sockerr)
 {
-    if (!p) return nullptr; 
-
     Ptr<Node> thisNode = m_ipv4->GetObject<Node>();
     Ipv4Address destAddr = header.GetDestination();
     NS_LOG_INFO("RouteOutput on Node " << thisNode->GetId() << " to " << destAddr);
+    
+    // Handle case where p is nullptr (like from SetupEndpoint)
+    if (!p) {
+        NS_LOG_INFO("  -> Packet is nullptr (likely from TCP SetupEndpoint), creating dummy packet");
+        p = Create<Packet>(0);
+    }
 
     if (thisNode->GetObject<ConstantPositionMobilityModel>())
     {
-        NS_LOG_INFO("  -> Current node is a Ground Station. Finding closest satellite.");
+        NS_LOG_INFO("  -> Current node is a Ground Station. Finding closest satellite. Time: " << Simulator::Now().GetSeconds() << "s");
         double minDistance = -1.0;
         Ptr<NetDevice> bestDevice = nullptr;
+        Ptr<Node> selectedSatellite = nullptr;
         
+        NS_LOG_INFO("  -> Ground station has " << m_ipv4->GetNInterfaces() << " interfaces, checking all satellites:");
         for (uint32_t i = 1; i < m_ipv4->GetNInterfaces(); ++i)
         {
             Ptr<NetDevice> dev = m_ipv4->GetNetDevice(i);
@@ -338,6 +350,7 @@ SatelliteSpRoutingProtocol::RouteOutput(Ptr<Packet> p, const Ipv4Header &header,
                     {
                         minDistance = dist;
                         bestDevice = dev;
+                        selectedSatellite = peerDev->GetNode();
                     }
                 }
             }
@@ -345,6 +358,7 @@ SatelliteSpRoutingProtocol::RouteOutput(Ptr<Packet> p, const Ipv4Header &header,
 
         if (bestDevice)
         {
+            NS_LOG_INFO("  -> Selected satellite " << selectedSatellite->GetId() << " at distance " << minDistance);
             Ptr<Channel> ch = bestDevice->GetChannel();
             Ptr<NetDevice> peerDev = (ch->GetDevice(0) == bestDevice) ? ch->GetDevice(1) : ch->GetDevice(0);
             Ptr<Ipv4> peerIpv4 = peerDev->GetNode()->GetObject<Ipv4>();
@@ -355,6 +369,7 @@ SatelliteSpRoutingProtocol::RouteOutput(Ptr<Packet> p, const Ipv4Header &header,
             route->SetSource(m_ipv4->GetAddress(m_ipv4->GetInterfaceForDevice(bestDevice), 0).GetLocal());
             route->SetGateway(gateway);
             route->SetOutputDevice(bestDevice);
+            NS_LOG_INFO("  -> Route created: src=" << route->GetSource() << " gw=" << gateway << " dev=" << bestDevice->GetIfIndex());
             return route;
         }
 
@@ -367,11 +382,16 @@ SatelliteSpRoutingProtocol::RouteOutput(Ptr<Packet> p, const Ipv4Header &header,
     auto it_map = m_ipToNodeMap.find(destAddr);
     if (it_map == m_ipToNodeMap.end())
     {
-        NS_LOG_WARN("  -> Destination " << destAddr << " not found in IP-to-Node map.");
+        NS_LOG_WARN("  -> Destination " << destAddr << " not found in IP-to-Node map. Available IPs:");
+        for (const auto& entry : m_ipToNodeMap)
+        {
+            NS_LOG_WARN("    " << entry.first << " -> Node " << entry.second->GetId());
+        }
         sockerr = Socket::ERROR_NOROUTETOHOST;
         return nullptr;
     }
     Ptr<Node> destNode = it_map->second;
+    NS_LOG_DEBUG("  -> Found destination node " << destNode->GetId() << " for IP " << destAddr);
 
     // Check if destination is a ground station
     if (destNode->GetObject<ConstantPositionMobilityModel>())
@@ -496,6 +516,11 @@ SatelliteSpRoutingProtocol::RouteOutput(Ptr<Packet> p, const Ipv4Header &header,
     }
 
     NS_LOG_WARN("  -> No route found to Node " << destNode->GetId() << " (IP: " << destAddr << ") in SP routing table.");
+    NS_LOG_WARN("  -> Current routing table has " << m_routingTable.size() << " entries:");
+    for (const auto& entry : m_routingTable)
+    {
+        NS_LOG_WARN("    To Node " << entry.first->GetId() << " via Node " << entry.second.nextHopNode->GetId());
+    }
     sockerr = Socket::ERROR_NOROUTETOHOST;
     return nullptr;
 }

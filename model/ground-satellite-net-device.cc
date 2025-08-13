@@ -298,6 +298,14 @@ GroundSatelliteNetDevice::TxMachine()
 }
 
 void
+GroundSatelliteNetDevice::TxComplete(void)
+{
+    NS_LOG_FUNCTION(this);
+    m_txMachineState = false;
+    TxMachine();
+}
+
+void
 GroundSatelliteNetDevice::Receive(Ptr<Packet> packet, const Address& sender)
 {
     NS_LOG_FUNCTION(this << packet << sender);
