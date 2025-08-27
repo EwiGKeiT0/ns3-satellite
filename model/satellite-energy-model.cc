@@ -20,15 +20,15 @@ TypeId SatelliteEnergyModel::GetTypeId()
         .SetGroupName("Satellite")
         .AddConstructor<SatelliteEnergyModel>()
         .AddAttribute("TxCurrentA", "The current consumed by the device when transmitting.",
-                      DoubleValue(0.02),
+                      DoubleValue(0.5),
                       MakeDoubleAccessor(&SatelliteEnergyModel::m_txCurrentA),
                       MakeDoubleChecker<double>())
         .AddAttribute("RxCurrentA", "The current consumed by the device when receiving.",
-                      DoubleValue(0.01),
+                      DoubleValue(0.4),
                       MakeDoubleAccessor(&SatelliteEnergyModel::m_rxCurrentA),
                       MakeDoubleChecker<double>())
         .AddAttribute("IdleCurrentA", "The current consumed by the device when idle.",
-                      DoubleValue(0.001),
+                      DoubleValue(0.0),
                       MakeDoubleAccessor(&SatelliteEnergyModel::m_idleCurrentA),
                       MakeDoubleChecker<double>());
     return tid;
@@ -97,12 +97,8 @@ double SatelliteEnergyModel::GetTotalEnergyConsumption() const
 {
     Time duration = Simulator::Now() - m_lastUpdateTime;
     double energy = m_totalEnergyConsumption;
-
-    if (m_source)
-    {
-        energy += duration.GetSeconds() * DoGetCurrentA() * m_source->GetSupplyVoltage();
-    }
-
+    energy += duration.GetSeconds() * DoGetCurrentA() * m_source->GetSupplyVoltage();
+    m_source->UpdateEnergySource();
     return energy;
 }
 
@@ -115,11 +111,11 @@ double SatelliteEnergyModel::DoGetCurrentA() const
     double current = m_idleCurrentA;
     if (m_isTransmitting)
     {
-        current += m_txCurrentA - m_idleCurrentA;
+        current += m_txCurrentA;
     }
     if (m_isReceiving)
     {
-        current += m_rxCurrentA - m_idleCurrentA;
+        current += m_rxCurrentA;
     }
     return current;
 }
